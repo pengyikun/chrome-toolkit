@@ -6,7 +6,12 @@ vi.mock("@raycast/utils", () => ({
   runAppleScript: (...args: unknown[]) => mockRunAppleScript(...args),
 }));
 
-import { getActiveTabUrl, getActiveTabInfo, getActiveTabHtml } from "../chrome";
+import {
+  getActiveTabUrl,
+  getActiveTabInfo,
+  getActiveTabCookies,
+  getActiveTabHtml,
+} from "../chrome";
 import {
   AutomationPermissionError,
   BrowserNotRunningError,
@@ -151,6 +156,60 @@ describe("getActiveTabInfo", () => {
       new Error("CHROME_NO_WINDOW number 1002"),
     );
     await expect(getActiveTabInfo()).rejects.toThrow(NoWindowError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getActiveTabCookies
+// ---------------------------------------------------------------------------
+describe("getActiveTabCookies", () => {
+  it("parses title, URL, and cookies separated by unit separators", async () => {
+    const cookies = "a=1; b=2";
+    mockRunAppleScript.mockResolvedValue(
+      `My Page${SEPARATOR}https://example.com${SEPARATOR}${cookies}`,
+    );
+    const result = await getActiveTabCookies();
+    expect(result.title).toBe("My Page");
+    expect(result.url).toBe("https://example.com");
+    expect(result.cookies).toBe(cookies);
+  });
+
+  it("handles empty cookie string", async () => {
+    mockRunAppleScript.mockResolvedValue(
+      `Title${SEPARATOR}https://x.com${SEPARATOR}`,
+    );
+    const result = await getActiveTabCookies();
+    expect(result.cookies).toBe("");
+  });
+
+  it("handles cookies containing equals signs in values", async () => {
+    const cookies = "token=abc=def=ghi";
+    mockRunAppleScript.mockResolvedValue(
+      `Title${SEPARATOR}https://x.com${SEPARATOR}${cookies}`,
+    );
+    const result = await getActiveTabCookies();
+    expect(result.cookies).toBe(cookies);
+  });
+
+  it("throws UnexpectedResponseError when separators are missing", async () => {
+    mockRunAppleScript.mockResolvedValue("just text no separators");
+    await expect(getActiveTabCookies()).rejects.toThrow(
+      UnexpectedResponseError,
+    );
+  });
+
+  it("throws UnexpectedResponseError when only one separator exists", async () => {
+    mockRunAppleScript.mockResolvedValue(`Title${SEPARATOR}rest`);
+    await expect(getActiveTabCookies()).rejects.toThrow(
+      UnexpectedResponseError,
+    );
+  });
+
+  it("uses default timeout", async () => {
+    mockRunAppleScript.mockResolvedValue(`T${SEPARATOR}U${SEPARATOR}C`);
+    await getActiveTabCookies();
+    const callArgs = mockRunAppleScript.mock.calls[0];
+    expect(callArgs[1]).toEqual({ timeout: 5_000 });
   });
 });
 

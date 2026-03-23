@@ -19,6 +19,8 @@ declare namespace Preferences {
   export type CopyMarkdownLink = ExtensionPreferences & {}
   /** Preferences accessible in the `extract-html` command */
   export type ExtractHtml = ExtensionPreferences & {}
+  /** Preferences accessible in the `extract-cookies` command */
+  export type ExtractCookies = ExtensionPreferences & {}
   /** Preferences accessible in the `open-in-atlas` command */
   export type OpenInAtlas = ExtensionPreferences & {}
 }
@@ -30,6 +32,8 @@ declare namespace Arguments {
   export type CopyMarkdownLink = {}
   /** Arguments passed to the `extract-html` command */
   export type ExtractHtml = {}
+  /** Arguments passed to the `extract-cookies` command */
+  export type ExtractCookies = {}
   /** Arguments passed to the `open-in-atlas` command */
   export type OpenInAtlas = {}
 }

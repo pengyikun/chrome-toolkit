@@ -117,6 +117,41 @@ export async function getActiveTabInfo(): Promise<{
   };
 }
 
+/** Returns the raw cookie string, URL, and title of the active Chrome tab. */
+export async function getActiveTabCookies(): Promise<{
+  cookies: string;
+  url: string;
+  title: string;
+}> {
+  const fs = "character id 31";
+  const script = `
+    if application "Google Chrome" is not running then error "CHROME_NOT_RUNNING" number 1001
+    tell application "Google Chrome"
+      if (count of windows) is 0 then error "CHROME_NO_WINDOW" number 1002
+      set currentTab to active tab of front window
+      set tabCookies to execute currentTab javascript "document.cookie"
+      set tabURL to URL of currentTab
+      if tabURL is missing value then set tabURL to ""
+      set tabTitle to title of currentTab
+      if tabTitle is missing value then set tabTitle to ""
+      return (tabTitle as string) & ${fs} & (tabURL as string) & ${fs} & tabCookies
+    end tell
+  `;
+  const result = await runChromeScript(script);
+  const first = result.indexOf(FIELD_SEPARATOR);
+  const second = result.indexOf(FIELD_SEPARATOR, first + 1);
+  if (first < 0 || second < 0) {
+    throw new UnexpectedResponseError(
+      "missing field separators in cookies response",
+    );
+  }
+  return {
+    title: result.slice(0, first),
+    url: result.slice(first + 1, second),
+    cookies: result.slice(second + 1),
+  };
+}
+
 /** Returns the body HTML, URL, and title of the active Chrome tab. */
 export async function getActiveTabHtml(): Promise<{
   html: string;
