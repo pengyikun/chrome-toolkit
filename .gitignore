@@ -17,17 +17,30 @@ dist/
 .project
 .classpath
 .settings/
+*.sublime-project
+*.sublime-workspace
+.history/
 
 # OS files
 .DS_Store
 Thumbs.db
 Desktop.ini
 ._*
+ehthumbs.db
+ehthumbs_vista.db
+*.lnk
+.Spotlight-V100
+.Trashes
+__MACOSX/
 
 # Environment & secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.cert
+*.p12
 
 # Test / coverage
 coverage/
@@ -37,10 +50,16 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 *.log
 
 # Raycast
 .raycast/
 
-# Optional: lock file (uncomment if you want to exclude)
-# package-lock.json
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+.cache/
