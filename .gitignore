@@ -41,6 +41,10 @@ __MACOSX/
 *.key
 *.cert
 *.p12
+*.pfx
+*.jks
+id_rsa*
+*.secret
 
 # Test / coverage
 coverage/
@@ -63,3 +67,6 @@ lerna-debug.log*
 *.bak
 *.orig
 .cache/
+
+# Package manager lockfile (optional — uncomment if not tracking)
+# package-lock.json

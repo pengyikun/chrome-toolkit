@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  escapeCodeFences,
   escapeMarkdownInline,
   escapeMarkdownLinkText,
   escapeMarkdownLinkUrl,
@@ -114,5 +115,30 @@ describe("escapeMarkdownInline", () => {
 
   it("handles empty string", () => {
     expect(escapeMarkdownInline("")).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// escapeCodeFences
+// ---------------------------------------------------------------------------
+describe("escapeCodeFences", () => {
+  it("returns plain text unchanged", () => {
+    expect(escapeCodeFences("hello world")).toBe("hello world");
+  });
+
+  it("escapes triple backticks", () => {
+    expect(escapeCodeFences("before ``` after")).toBe("before \\`\\`\\` after");
+  });
+
+  it("escapes multiple occurrences", () => {
+    expect(escapeCodeFences("``` code ```")).toBe("\\`\\`\\` code \\`\\`\\`");
+  });
+
+  it("handles empty string", () => {
+    expect(escapeCodeFences("")).toBe("");
+  });
+
+  it("leaves single and double backticks alone", () => {
+    expect(escapeCodeFences("` `` `")).toBe("` `` `");
   });
 });

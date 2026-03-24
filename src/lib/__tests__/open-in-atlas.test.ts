@@ -52,10 +52,11 @@ describe("Command (open-in-atlas)", () => {
     await Command();
 
     expect(mockExistsSync).toHaveBeenCalled();
-    expect(mockExecFileAsync).toHaveBeenCalledWith(
-      "open",
-      ["-a", expect.stringContaining("ChatGPT Atlas.app"), "https://example.com"],
-    );
+    expect(mockExecFileAsync).toHaveBeenCalledWith("open", [
+      "-a",
+      expect.stringContaining("ChatGPT Atlas.app"),
+      "https://example.com",
+    ]);
     expect(mockShowHUD).toHaveBeenCalledWith("Opened in Atlas ✓");
   });
 

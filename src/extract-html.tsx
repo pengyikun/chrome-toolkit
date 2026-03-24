@@ -9,7 +9,7 @@ import {
 } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getActiveTabHtml } from "./lib/chrome";
-import { escapeMarkdownInline } from "./lib/markdown";
+import { escapeCodeFences, escapeMarkdownInline } from "./lib/markdown";
 import { showChromeError } from "./lib/toast-error";
 
 interface State {
@@ -27,10 +27,6 @@ const INITIAL_STATE: State = {
   url: "",
   error: "",
 };
-
-function escapeCodeFences(input: string): string {
-  return input.replace(/```/g, "\\`\\`\\`");
-}
 
 export default function Command() {
   const [state, setState] = useState<State>(INITIAL_STATE);

@@ -31,9 +31,7 @@ describe("parseCookieString", () => {
   });
 
   it("handles cookie with empty value", () => {
-    expect(parseCookieString("empty=")).toEqual([
-      { name: "empty", value: "" },
-    ]);
+    expect(parseCookieString("empty=")).toEqual([{ name: "empty", value: "" }]);
   });
 
   it("handles cookie with no equals sign (name only)", () => {

@@ -21,6 +21,16 @@ declare namespace Preferences {
   export type ExtractHtml = ExtensionPreferences & {}
   /** Preferences accessible in the `extract-cookies` command */
   export type ExtractCookies = ExtensionPreferences & {}
+  /** Preferences accessible in the `search-cookie` command */
+  export type SearchCookie = ExtensionPreferences & {}
+  /** Preferences accessible in the `search-tab-group` command */
+  export type SearchTabGroup = ExtensionPreferences & {}
+  /** Preferences accessible in the `open-chrome-extensions` command */
+  export type OpenChromeExtensions = ExtensionPreferences & {}
+  /** Preferences accessible in the `open-chrome-settings` command */
+  export type OpenChromeSettings = ExtensionPreferences & {}
+  /** Preferences accessible in the `open-chrome-flags` command */
+  export type OpenChromeFlags = ExtensionPreferences & {}
   /** Preferences accessible in the `open-in-atlas` command */
   export type OpenInAtlas = ExtensionPreferences & {}
 }
@@ -34,6 +44,16 @@ declare namespace Arguments {
   export type ExtractHtml = {}
   /** Arguments passed to the `extract-cookies` command */
   export type ExtractCookies = {}
+  /** Arguments passed to the `search-cookie` command */
+  export type SearchCookie = {}
+  /** Arguments passed to the `search-tab-group` command */
+  export type SearchTabGroup = {}
+  /** Arguments passed to the `open-chrome-extensions` command */
+  export type OpenChromeExtensions = {}
+  /** Arguments passed to the `open-chrome-settings` command */
+  export type OpenChromeSettings = {}
+  /** Arguments passed to the `open-chrome-flags` command */
+  export type OpenChromeFlags = {}
   /** Arguments passed to the `open-in-atlas` command */
   export type OpenInAtlas = {}
 }

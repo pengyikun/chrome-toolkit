@@ -33,3 +33,11 @@ export function escapeMarkdownInline(text: string): string {
     .replace(/([\\`*_{}[\]()#+\-.!|>~])/g, "\\$1")
     .replace(/[\r\n]+/g, " ");
 }
+
+/**
+ * Escapes triple-backtick sequences inside code blocks to prevent
+ * premature closing of Markdown fenced code blocks.
+ */
+export function escapeCodeFences(input: string): string {
+  return input.replace(/```/g, "\\`\\`\\`");
+}
