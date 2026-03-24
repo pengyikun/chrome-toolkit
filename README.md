@@ -1,6 +1,6 @@
 # Chrome Helper
 
-A [Raycast](https://raycast.com) extension with utilities for Google Chrome — copy URLs, grab Markdown links, extract page HTML, export cookies, and open tabs in Atlas.
+A [Raycast](https://raycast.com) extension with utilities for Google Chrome — copy URLs, grab Markdown links, extract page HTML, export/search cookies, search tab groups, open Chrome pages, and open tabs in Atlas.
 
 ## Commands
 
@@ -10,16 +10,23 @@ A [Raycast](https://raycast.com) extension with utilities for Google Chrome — 
 | **Copy Chrome Markdown Link** | Copy the active tab's URL and title as a `[title](url)` Markdown link | No-view |
 | **Extract Chrome HTML** | Extract the body HTML of the active tab, display it, and copy to clipboard | View |
 | **Extract Chrome Cookies** | Extract cookies from the active tab as a JSON array and copy to clipboard | View |
+| **Search Chrome Cookie** | Search cookies by name from the active tab and copy name or value | View |
+| **Search Chrome Tab Group** | Search tab groups by name in the front Chrome window and switch to a tab | View |
+| **Open Chrome Extensions** | Open the Chrome extensions page | No-view |
+| **Open Chrome Settings** | Open the Chrome settings page | No-view |
+| **Open Chrome Flags** | Open the Chrome flags page | No-view |
 | **Open in Atlas** | Open the active Chrome tab URL in [ChatGPT Atlas](https://openai.com) browser | No-view |
 
 ## Prerequisites
 
 - **macOS** — the extension communicates with Chrome via AppleScript
 - **Google Chrome** installed and running
-- **Raycast** must have Automation permission for Chrome  
+- **Raycast** must have Automation permission for Chrome
   _System Settings → Privacy & Security → Automation → Raycast → Google Chrome_
+- **Search Chrome Tab Group** additionally requires Accessibility permission for Raycast
+  _System Settings → Privacy & Security → Accessibility → Raycast_
 
-> **Note:** Extract Chrome Cookies uses `document.cookie`, which only exposes non-HttpOnly cookies. HttpOnly cookies are inaccessible from JavaScript by design.
+> **Note:** Extract/Search Chrome Cookies uses `document.cookie`, which only exposes non-HttpOnly cookies. HttpOnly cookies are inaccessible from JavaScript by design.
 
 ## Development
 
@@ -53,20 +60,25 @@ npm run build
 
 ```
 src/
-├── copy-url.ts            # Copy URL command
-├── copy-markdown-link.ts  # Copy Markdown link command
-├── extract-html.tsx       # Extract HTML command (view)
-├── extract-cookies.tsx    # Extract cookies command (view)
-├── open-in-atlas.ts       # Open in Atlas command
+├── copy-url.ts              # Copy URL command
+├── copy-markdown-link.ts    # Copy Markdown link command
+├── extract-html.tsx         # Extract HTML command (view)
+├── extract-cookies.tsx      # Extract cookies command (view)
+├── search-cookie.tsx        # Search cookie command (view)
+├── search-tab-group.tsx     # Search tab group command (view)
+├── open-chrome-extensions.ts # Open extensions page command
+├── open-chrome-settings.ts  # Open settings page command
+├── open-chrome-flags.ts     # Open flags page command
+├── open-in-atlas.ts         # Open in Atlas command
 ├── lib/
-│   ├── chrome.ts          # AppleScript interface to Chrome
-│   ├── cookies.ts         # Cookie string parser
-│   ├── errors.ts          # Typed error classes
-│   ├── markdown.ts        # Markdown escaping utilities
-│   ├── toast-error.ts     # Centralized error toast handler
-│   └── __tests__/         # Unit tests for all lib modules
+│   ├── chrome.ts            # AppleScript interface to Chrome
+│   ├── cookies.ts           # Cookie string parser
+│   ├── errors.ts            # Typed error classes
+│   ├── markdown.ts          # Markdown escaping utilities
+│   ├── toast-error.ts       # Centralized error toast handler
+│   └── __tests__/           # Unit tests for all lib modules
 └── __mocks__/
-    └── @raycast/api.ts    # Raycast API mock for testing
+    └── @raycast/api.ts      # Raycast API mock for testing
 ```
 
 ## Testing
