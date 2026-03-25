@@ -8,7 +8,7 @@ import {
   Toast,
 } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getTabGroups, switchToTabGroup, TabGroup } from "./lib/chrome";
+import { getTabGroups, switchToTab, TabGroup } from "./lib/chrome";
 import { showChromeError } from "./lib/toast-error";
 
 interface State {
@@ -48,9 +48,9 @@ export default function Command() {
   }, [loadGroups]);
 
   const handleSwitch = useCallback(
-    async (groupName: string, tabIndex: number, tabTitle: string) => {
+    async (chromeIndex: number, tabTitle: string) => {
       try {
-        await switchToTabGroup(groupName, tabIndex);
+        await switchToTab(chromeIndex);
         await showHUD(`Switched to "${tabTitle}" ✓`);
       } catch (error) {
         await showToast({
@@ -95,11 +95,18 @@ export default function Command() {
       ) : (
         filtered.map((group, gi) => {
           const count = group.tabs.length;
+          const status = group.collapsed ? "collapsed" : "";
+          const subtitle = [
+            `${count} tab${count === 1 ? "" : "s"}`,
+            status,
+          ]
+            .filter(Boolean)
+            .join(" · ");
           return (
             <List.Section
               key={`${group.name}-${gi}`}
               title={group.name}
-              subtitle={`${count} tab${count === 1 ? "" : "s"}`}
+              subtitle={subtitle}
             >
               {group.tabs.map((title, ti) => (
                 <List.Item
@@ -111,7 +118,9 @@ export default function Command() {
                       <Action
                         title="Switch to This Tab"
                         icon={Icon.ArrowRight}
-                        onAction={() => handleSwitch(group.name, ti, title)}
+                        onAction={() =>
+                          handleSwitch(group.startIndex + ti, title)
+                        }
                       />
                       <Action
                         title="Refresh"

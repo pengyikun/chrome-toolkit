@@ -12,7 +12,7 @@ import {
   getActiveTabCookies,
   getActiveTabHtml,
   getTabGroups,
-  switchToTabGroup,
+  switchToTab,
 } from "../chrome";
 import {
   AutomationPermissionError,
@@ -298,74 +298,73 @@ describe("getActiveTabHtml", () => {
 // getTabGroups
 // ---------------------------------------------------------------------------
 describe("getTabGroups", () => {
-  const SEPARATOR = "\u001F";
-  const RECORD_SEP = "\u001E";
+  const FS = "\u001F";
+  const RS = "\u001E";
 
-  it("returns empty array when result is empty", async () => {
-    mockRunAppleScript.mockResolvedValue("");
-    const { getTabGroups } = await import("../chrome");
+  // getTabGroups makes 2 AppleScript calls:
+  //   1st: Chrome tab titles (FS-separated)
+  //   2nd: AX tree groups (RS-separated records, FS-separated fields: desc, startIndex, tabCount)
+
+  it("returns empty array when AX result is empty", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab A${FS}Tab B`) // titles
+      .mockResolvedValueOnce(""); // AX tree
     const groups = await getTabGroups();
     expect(groups).toEqual([]);
   });
 
-  it("returns empty array for whitespace-only result", async () => {
-    mockRunAppleScript.mockResolvedValue("   ");
-    const { getTabGroups } = await import("../chrome");
-    const groups = await getTabGroups();
-    expect(groups).toEqual([]);
-  });
-
-  it("parses single group with tabs", async () => {
-    const groupDesc = ' my-group - "Tab One" and 1 Other Tab - Expanded';
-    const tab1 = "Tab One - Part of my-group";
-    const tab2 = "Tab Two - Part of my-group";
-    mockRunAppleScript.mockResolvedValue(
-      `${groupDesc}${SEPARATOR}${tab1}${SEPARATOR}${tab2}`,
-    );
+  it("parses a single expanded group with correct tab titles", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab One${FS}Tab Two`) // titles
+      .mockResolvedValueOnce(
+        ` my-group - "Tab One" and 1 Other Tab - Expanded${FS}1${FS}2`,
+      );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe("my-group");
     expect(groups[0].tabs).toEqual(["Tab One", "Tab Two"]);
+    expect(groups[0].collapsed).toBe(false);
+    expect(groups[0].startIndex).toBe(1);
   });
 
-  it("filters out 'unnamed group' metadata entries", async () => {
-    const groupDesc = ' group 1 - "Tab A" - Expanded';
-    const meta = "Tab A - Part of unnamed group - Memory usage - 100 MB";
-    const actual = "Tab A - Part of group 1";
-    mockRunAppleScript.mockResolvedValue(
-      `${groupDesc}${SEPARATOR}${meta}${SEPARATOR}${actual}`,
-    );
+  it("parses a collapsed group", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab A${FS}Tab B`) // titles
+      .mockResolvedValueOnce(
+        ` work - "Tab A" and 1 Other Tab - Collapsed${FS}1${FS}2`,
+      );
     const groups = await getTabGroups();
-    expect(groups[0].tabs).toEqual(["Tab A"]);
+    expect(groups[0].collapsed).toBe(true);
+    expect(groups[0].tabs).toEqual(["Tab A", "Tab B"]);
   });
 
-  it("falls back to all entries when all are 'unnamed group'", async () => {
-    const groupDesc = ' group 1 - "Tab A" - Expanded';
-    const meta = "Tab A - Part of unnamed group - Memory usage - 100 MB";
-    mockRunAppleScript.mockResolvedValue(`${groupDesc}${SEPARATOR}${meta}`);
-    const groups = await getTabGroups();
-    expect(groups[0].tabs).toEqual(["Tab A"]);
-  });
-
-  it("parses multiple groups separated by record separator", async () => {
-    const g1 = ` group 1 - "A" - Expanded${SEPARATOR}A - Part of group 1`;
-    const g2 = ` group 2 - "B" - Expanded${SEPARATOR}B - Part of group 2`;
-    mockRunAppleScript.mockResolvedValue(`${g1}${RECORD_SEP}${g2}`);
+  it("parses multiple groups with correct startIndex", async () => {
+    // 3 ungrouped tabs, then group1 (2 tabs), then group2 (1 tab)
+    mockRunAppleScript
+      .mockResolvedValueOnce(
+        `Ungrouped1${FS}Ungrouped2${FS}Ungrouped3${FS}G1-Tab1${FS}G1-Tab2${FS}G2-Tab1`,
+      )
+      .mockResolvedValueOnce(
+        ` group 1 - "G1-Tab1" - Expanded${FS}4${FS}2${RS} group 2 - "G2-Tab1" - Expanded${FS}6${FS}1`,
+      );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(2);
     expect(groups[0].name).toBe("group 1");
+    expect(groups[0].tabs).toEqual(["G1-Tab1", "G1-Tab2"]);
+    expect(groups[0].startIndex).toBe(4);
     expect(groups[1].name).toBe("group 2");
+    expect(groups[1].tabs).toEqual(["G2-Tab1"]);
+    expect(groups[1].startIndex).toBe(6);
   });
 
-  it("preserves duplicate tab titles (same-name tabs)", async () => {
-    const groupDesc = ' work - "Tab" and 1 Other Tab - Expanded';
-    const tab1 = "Tab - Part of work";
-    const tab2 = "Tab - Part of work";
-    mockRunAppleScript.mockResolvedValue(
-      `${groupDesc}${SEPARATOR}${tab1}${SEPARATOR}${tab2}`,
-    );
+  it("falls back to parsed description when titles are out of range", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce("") // empty titles
+      .mockResolvedValueOnce(
+        ` work - "Fallback Title" and 1 Other Tab - Collapsed${FS}1${FS}2`,
+      );
     const groups = await getTabGroups();
-    expect(groups[0].tabs).toEqual(["Tab", "Tab"]);
+    expect(groups[0].tabs).toEqual(["Fallback Title", "Tab 2"]);
   });
 
   it("throws BrowserNotRunningError on error 1001", async () => {
@@ -381,48 +380,30 @@ describe("getTabGroups", () => {
     );
     await expect(getTabGroups()).rejects.toThrow(NoWindowError);
   });
-
-  it("handles group name with no quotes in description", async () => {
-    const groupDesc = "some fallback text";
-    mockRunAppleScript.mockResolvedValue(
-      `${groupDesc}${SEPARATOR}Tab - Part of group`,
-    );
-    const groups = await getTabGroups();
-    expect(groups[0].name).toBe("some fallback text");
-  });
 });
 
 // ---------------------------------------------------------------------------
-// switchToTabGroup
+// switchToTab
 // ---------------------------------------------------------------------------
-describe("switchToTabGroup", () => {
-  it("throws when group is not found", async () => {
-    mockRunAppleScript.mockResolvedValue("NOT_FOUND");
-    const { switchToTabGroup } = await import("../chrome");
-    await expect(switchToTabGroup("nonexistent")).rejects.toThrow(
-      'Tab group "nonexistent" not found',
-    );
-  });
-
-  it("resolves when group is found", async () => {
-    mockRunAppleScript.mockResolvedValue("OK");
-    const { switchToTabGroup } = await import("../chrome");
-    await expect(switchToTabGroup("my-group", 0)).resolves.toBeUndefined();
-  });
-
-  it("escapes double quotes in group name for AppleScript", async () => {
-    mockRunAppleScript.mockResolvedValue("OK");
-    const { switchToTabGroup } = await import("../chrome");
-    await switchToTabGroup('group "with quotes"', 0);
+describe("switchToTab", () => {
+  it("sets active tab index via AppleScript", async () => {
+    mockRunAppleScript.mockResolvedValue("");
+    await switchToTab(3);
     const script = mockRunAppleScript.mock.calls[0][0] as string;
-    expect(script).toContain('group \\"with quotes\\"');
+    expect(script).toContain("set active tab index of front window to 3");
   });
 
-  it("uses extended timeout for System Events operations", async () => {
-    mockRunAppleScript.mockResolvedValue("OK");
-    const { switchToTabGroup } = await import("../chrome");
-    await switchToTabGroup("test");
-    const opts = mockRunAppleScript.mock.calls[0][1] as { timeout: number };
-    expect(opts.timeout).toBe(10_000);
+  it("throws BrowserNotRunningError on error 1001", async () => {
+    mockRunAppleScript.mockRejectedValue(
+      new Error("CHROME_NOT_RUNNING number 1001"),
+    );
+    await expect(switchToTab(1)).rejects.toThrow(BrowserNotRunningError);
+  });
+
+  it("throws NoWindowError on error 1002", async () => {
+    mockRunAppleScript.mockRejectedValue(
+      new Error("CHROME_NO_WINDOW number 1002"),
+    );
+    await expect(switchToTab(1)).rejects.toThrow(NoWindowError);
   });
 });
