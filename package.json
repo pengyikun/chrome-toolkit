@@ -4,7 +4,7 @@
   "title": "Chrome Helper",
   "description": "A collection of Chrome browser utilities: copy URL, copy Markdown link, extract HTML, extract/search cookies, search tab groups, open Chrome pages, and open in Atlas.",
   "icon": "extension-icon.png",
-  "author": "ykpeng",
+  "author": "pengyikun",
   "categories": [
     "Productivity",
     "Web",

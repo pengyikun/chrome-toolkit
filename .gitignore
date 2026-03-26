@@ -61,6 +61,13 @@ lerna-debug.log*
 # Raycast
 .raycast/
 
+# AI / agent config
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.copilot/
+
 # Temporary files
 *.tmp
 *.temp

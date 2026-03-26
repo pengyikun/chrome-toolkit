@@ -96,10 +96,7 @@ export default function Command() {
         filtered.map((group, gi) => {
           const count = group.tabs.length;
           const status = group.collapsed ? "collapsed" : "";
-          const subtitle = [
-            `${count} tab${count === 1 ? "" : "s"}`,
-            status,
-          ]
+          const subtitle = [`${count} tab${count === 1 ? "" : "s"}`, status]
             .filter(Boolean)
             .join(" · ");
           return (
