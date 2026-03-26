@@ -1,4 +1,4 @@
-# Chrome Helper
+# Chrome Toolkit
 
 A [Raycast](https://raycast.com) extension that makes it easier to work with Google Chrome on macOS.
 
