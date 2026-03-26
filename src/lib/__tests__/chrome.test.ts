@@ -313,55 +313,61 @@ describe("getTabGroups", () => {
     expect(groups).toEqual([]);
   });
 
+  // AX result format: ungroupedIndices FS groupRecords
+  // groupRecords: RS-separated, each: desc FS startIndex FS tabCount
+
   it("parses a single expanded group with correct tab titles", async () => {
     mockRunAppleScript
       .mockResolvedValueOnce(`Tab One${FS}Tab Two`) // titles
       .mockResolvedValueOnce(
-        ` my-group - "Tab One" and 1 Other Tab - Expanded${FS}1${FS}2`,
+        `${FS} my-group - "Tab One" and 1 Other Tab - Expanded${FS}1${FS}2`,
       );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe("my-group");
     expect(groups[0].tabs).toEqual(["Tab One", "Tab Two"]);
     expect(groups[0].collapsed).toBe(false);
-    expect(groups[0].startIndex).toBe(1);
+    expect(groups[0].tabIndices).toEqual([1, 2]);
   });
 
   it("parses a collapsed group", async () => {
     mockRunAppleScript
       .mockResolvedValueOnce(`Tab A${FS}Tab B`) // titles
       .mockResolvedValueOnce(
-        ` work - "Tab A" and 1 Other Tab - Collapsed${FS}1${FS}2`,
+        `${FS} work - "Tab A" and 1 Other Tab - Collapsed${FS}1${FS}2`,
       );
     const groups = await getTabGroups();
     expect(groups[0].collapsed).toBe(true);
     expect(groups[0].tabs).toEqual(["Tab A", "Tab B"]);
   });
 
-  it("parses multiple groups with correct startIndex", async () => {
-    // 3 ungrouped tabs, then group1 (2 tabs), then group2 (1 tab)
+  it("parses multiple groups with ungrouped tabs", async () => {
+    // 3 ungrouped tabs (indices 1,2,3), then group1 (2 tabs at 4,5), then group2 (1 tab at 6)
     mockRunAppleScript
       .mockResolvedValueOnce(
         `Ungrouped1${FS}Ungrouped2${FS}Ungrouped3${FS}G1-Tab1${FS}G1-Tab2${FS}G2-Tab1`,
       )
       .mockResolvedValueOnce(
-        ` group 1 - "G1-Tab1" - Expanded${FS}4${FS}2${RS} group 2 - "G2-Tab1" - Expanded${FS}6${FS}1`,
+        `1,2,3${FS} group 1 - "G1-Tab1" - Expanded${FS}4${FS}2${RS} group 2 - "G2-Tab1" - Expanded${FS}6${FS}1`,
       );
     const groups = await getTabGroups();
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(3);
     expect(groups[0].name).toBe("group 1");
     expect(groups[0].tabs).toEqual(["G1-Tab1", "G1-Tab2"]);
-    expect(groups[0].startIndex).toBe(4);
+    expect(groups[0].tabIndices).toEqual([4, 5]);
     expect(groups[1].name).toBe("group 2");
     expect(groups[1].tabs).toEqual(["G2-Tab1"]);
-    expect(groups[1].startIndex).toBe(6);
+    expect(groups[1].tabIndices).toEqual([6]);
+    expect(groups[2].name).toBe("Ungrouped");
+    expect(groups[2].tabs).toEqual(["Ungrouped1", "Ungrouped2", "Ungrouped3"]);
+    expect(groups[2].tabIndices).toEqual([1, 2, 3]);
   });
 
   it("falls back to parsed description when titles are out of range", async () => {
     mockRunAppleScript
       .mockResolvedValueOnce("") // empty titles
       .mockResolvedValueOnce(
-        ` work - "Fallback Title" and 1 Other Tab - Collapsed${FS}1${FS}2`,
+        `${FS} work - "Fallback Title" and 1 Other Tab - Collapsed${FS}1${FS}2`,
       );
     const groups = await getTabGroups();
     expect(groups[0].tabs).toEqual(["Fallback Title", "Tab 2"]);

@@ -67,6 +67,3 @@ lerna-debug.log*
 *.bak
 *.orig
 .cache/
-
-# Package manager lockfile (optional — uncomment if not tracking)
-# package-lock.json

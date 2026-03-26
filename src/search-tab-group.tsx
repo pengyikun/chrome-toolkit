@@ -119,7 +119,7 @@ export default function Command() {
                         title="Switch to This Tab"
                         icon={Icon.ArrowRight}
                         onAction={() =>
-                          handleSwitch(group.startIndex + ti, title)
+                          handleSwitch(group.tabIndices[ti], title)
                         }
                       />
                       <Action

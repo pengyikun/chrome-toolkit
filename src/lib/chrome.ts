@@ -159,8 +159,8 @@ export interface TabGroup {
   name: string;
   tabs: string[];
   collapsed: boolean;
-  /** 1-based Chrome tab index of the first tab in this group. */
-  startIndex: number;
+  /** 1-based Chrome tab indices for each tab in this group. */
+  tabIndices: number[];
 }
 
 /**
@@ -286,29 +286,59 @@ ${TAB_CONTAINER_PREAMBLE}
           end if
         end repeat
 
-        return results
+        return ungrouped & ${fs} & results
 ${TAB_CONTAINER_EPILOGUE}
   `;
   const axResult = await runChromeScript(axScript, UI_TIMEOUT_MS);
   if (!axResult.trim()) return [];
 
-  return axResult.split("\u001E").map((record) => {
-    const parts = record.split(FIELD_SEPARATOR);
-    const groupDesc = parts[0] ?? "";
-    const startIdx = parseInt(parts[1] ?? "1", 10);
-    const tabCount = parseInt(parts[2] ?? "1", 10);
-    const isCollapsed = groupDesc.includes("Collapsed");
+  // The AX result is: ungroupedIndices FS groupRecords
+  // ungroupedIndices is comma-separated 1-based Chrome tab indices
+  // groupRecords is RS-separated, each: desc FS startIndex FS tabCount
+  const firstFS = axResult.indexOf(FIELD_SEPARATOR);
+  const ungroupedPart = firstFS >= 0 ? axResult.slice(0, firstFS) : axResult;
+  const groupsPart = firstFS >= 0 ? axResult.slice(firstFS + 1) : "";
 
-    // Use real Chrome tab titles for this group's range
-    const tabs = allTitles.slice(startIdx - 1, startIdx - 1 + tabCount);
+  const groups: TabGroup[] = [];
 
-    return {
-      name: parseTabGroupName(groupDesc),
-      tabs: tabs.length > 0 ? tabs : parseCollapsedTabs(groupDesc),
-      collapsed: isCollapsed,
-      startIndex: startIdx,
-    };
-  });
+  if (groupsPart.trim()) {
+    for (const record of groupsPart.split("\u001E")) {
+      const parts = record.split(FIELD_SEPARATOR);
+      const groupDesc = parts[0] ?? "";
+      const startIdx = parseInt(parts[1] ?? "1", 10);
+      const tabCount = parseInt(parts[2] ?? "1", 10);
+      const isCollapsed = groupDesc.includes("Collapsed");
+
+      const tabs = allTitles.slice(startIdx - 1, startIdx - 1 + tabCount);
+      const indices = Array.from({ length: tabCount }, (_, i) => startIdx + i);
+
+      groups.push({
+        name: parseTabGroupName(groupDesc),
+        tabs: tabs.length > 0 ? tabs : parseCollapsedTabs(groupDesc),
+        collapsed: isCollapsed,
+        tabIndices: indices,
+      });
+    }
+  }
+
+  // Build the "Ungrouped" section from remaining tab indices
+  if (ungroupedPart.trim()) {
+    const indices = ungroupedPart
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n));
+    if (indices.length > 0) {
+      const tabs = indices.map((i) => allTitles[i - 1] ?? `Tab ${i}`);
+      groups.push({
+        name: "Ungrouped",
+        tabs,
+        collapsed: false,
+        tabIndices: indices,
+      });
+    }
+  }
+
+  return groups;
 }
 
 /**
