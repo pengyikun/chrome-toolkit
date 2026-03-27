@@ -374,14 +374,14 @@ describe("getTabGroups", () => {
   });
 
   it("throws BrowserNotRunningError on error 1001", async () => {
-    mockRunAppleScript.mockRejectedValue(
+    mockRunAppleScript.mockRejectedValueOnce(
       new Error("CHROME_NOT_RUNNING number 1001"),
     );
     await expect(getTabGroups()).rejects.toThrow(BrowserNotRunningError);
   });
 
   it("throws NoWindowError on error 1002", async () => {
-    mockRunAppleScript.mockRejectedValue(
+    mockRunAppleScript.mockRejectedValueOnce(
       new Error("CHROME_NO_WINDOW number 1002"),
     );
     await expect(getTabGroups()).rejects.toThrow(NoWindowError);
@@ -393,21 +393,21 @@ describe("getTabGroups", () => {
 // ---------------------------------------------------------------------------
 describe("switchToTab", () => {
   it("sets active tab index via AppleScript", async () => {
-    mockRunAppleScript.mockResolvedValue("");
+    mockRunAppleScript.mockResolvedValueOnce("");
     await switchToTab(3);
     const script = mockRunAppleScript.mock.calls[0][0] as string;
     expect(script).toContain("set active tab index of front window to 3");
   });
 
   it("throws BrowserNotRunningError on error 1001", async () => {
-    mockRunAppleScript.mockRejectedValue(
+    mockRunAppleScript.mockRejectedValueOnce(
       new Error("CHROME_NOT_RUNNING number 1001"),
     );
     await expect(switchToTab(1)).rejects.toThrow(BrowserNotRunningError);
   });
 
   it("throws NoWindowError on error 1002", async () => {
-    mockRunAppleScript.mockRejectedValue(
+    mockRunAppleScript.mockRejectedValueOnce(
       new Error("CHROME_NO_WINDOW number 1002"),
     );
     await expect(switchToTab(1)).rejects.toThrow(NoWindowError);

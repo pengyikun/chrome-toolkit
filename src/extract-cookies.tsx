@@ -86,7 +86,7 @@ export default function Command() {
       actions={
         <ActionPanel>
           {!error && json && (
-            <Action.CopyToClipboard title="Copy Cookies Json" content={json} />
+            <Action.CopyToClipboard title="Copy Cookies JSON" content={json} />
           )}
           {url && <Action.OpenInBrowser url={url} />}
           <Action

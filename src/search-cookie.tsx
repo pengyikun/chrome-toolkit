@@ -1,11 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Icon,
-  List,
-  showToast,
-  Toast,
-} from "@raycast/api";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getActiveTabCookies } from "./lib/chrome";
 import { Cookie, parseCookieString } from "./lib/cookies";
