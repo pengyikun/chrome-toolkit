@@ -1,18 +1,5 @@
-import { showHUD, showToast, Toast } from "@raycast/api";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { openChromePage } from "./lib/open-chrome-page";
 
 export default async function Command() {
-  try {
-    await execFileAsync("open", ["-a", "Google Chrome", "chrome://flags"]);
-    await showHUD("Opened Chrome Flags ✓");
-  } catch {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "Failed to Open Flags",
-      message: "Could not open Google Chrome. Is it installed?",
-    });
-  }
+  await openChromePage("chrome://flags", "Chrome Flags");
 }
