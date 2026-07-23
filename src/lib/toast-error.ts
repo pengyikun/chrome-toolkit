@@ -1,7 +1,9 @@
 import { showToast, Toast } from "@raycast/api";
 import {
+  AccessibilityPermissionError,
   AutomationPermissionError,
   BrowserNotRunningError,
+  JavaScriptDisabledError,
   NoWindowError,
 } from "./errors";
 
@@ -31,6 +33,20 @@ export async function showChromeError(
       title: "Permission Required",
       message:
         "Enable Chrome access in System Settings → Privacy & Security → Automation.",
+    });
+  } else if (error instanceof AccessibilityPermissionError) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "Accessibility Permission Required",
+      message:
+        "Enable Raycast in System Settings → Privacy & Security → Accessibility.",
+    });
+  } else if (error instanceof JavaScriptDisabledError) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "JavaScript From Apple Events Is Off",
+      message:
+        "In Chrome, enable View → Developer → Allow JavaScript from Apple Events.",
     });
   } else {
     await showToast({

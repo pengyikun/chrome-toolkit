@@ -2,6 +2,7 @@ import {
   Action,
   ActionPanel,
   Icon,
+  Keyboard,
   List,
   showHUD,
   showToast,
@@ -101,7 +102,7 @@ export default function Command() {
             .join(" · ");
           return (
             <List.Section
-              key={`${group.name}-${gi}`}
+              key={`${group.name}-${group.tabIndices[0] ?? gi}`}
               title={group.name}
               subtitle={subtitle}
             >
@@ -123,7 +124,7 @@ export default function Command() {
                         title="Refresh"
                         icon={Icon.RotateClockwise}
                         onAction={loadGroups}
-                        shortcut={{ modifiers: ["cmd"], key: "r" }}
+                        shortcut={Keyboard.Shortcut.Common.Refresh}
                       />
                     </ActionPanel>
                   }

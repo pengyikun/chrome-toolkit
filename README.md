@@ -1,43 +1,49 @@
 # Chrome Toolkit
 
-A [Raycast](https://raycast.com) extension that makes it easier to work with Google Chrome on macOS.
+A [Raycast](https://raycast.com) extension for working with Google Chrome on macOS — copy URLs, extract HTML and cookies, and jump between tab groups without leaving your keyboard.
 
-Copy URLs, grab Markdown links, pull out page HTML or cookies, jump between tab groups, and more — all from Raycast.
+## Commands
 
-## What it does
+| Command | Description |
+| --- | --- |
+| **Copy Chrome URL** | Copy the URL of the active tab |
+| **Copy Chrome Markdown Link** | Copy the active tab as a `[title](url)` Markdown link |
+| **Extract Chrome HTML** | View and copy the body HTML of the active tab |
+| **Extract Chrome Cookies** | Copy the active tab's cookies as JSON |
+| **Search Chrome Cookie** | Search cookies by name and copy a name or value |
+| **Search Chrome Tab Group** | Search tab groups and tabs, then switch to one |
+| **Open Chrome Extensions / Settings / Flags** | Jump straight to the `chrome://` pages |
+| **Open in Atlas** | Open the active tab in the ChatGPT Atlas browser |
 
-- **Copy URL / Markdown link** from the active tab
-- **Extract HTML** or **cookies** from the current page
-- **Search cookies** by name
-- **Search and switch tab groups** (expanded, collapsed, or ungrouped)
-- **Open Chrome pages** like Extensions, Settings, or Flags
-- **Open in Atlas** — send the current tab to ChatGPT Atlas
+## Requirements
 
-## Setup
+- macOS with Google Chrome installed
+- Permissions, granted on first use or in *System Settings → Privacy & Security*:
+  - **Automation** → Raycast → Google Chrome (all commands)
+  - **Accessibility** → Raycast (tab group search)
+- For HTML and cookie extraction, enable **View → Developer → Allow JavaScript from Apple Events** in Chrome
 
-1. macOS with Google Chrome installed
-2. Grant Raycast **Automation** permission for Chrome:
-   *System Settings → Privacy & Security → Automation → Raycast → Google Chrome*
-3. For tab group search, also grant **Accessibility** permission:
-   *System Settings → Privacy & Security → Accessibility → Raycast*
-
-> Cookie extraction uses `document.cookie`, so HttpOnly cookies won't show up — that's a browser security thing, not a limitation of this extension.
+Cookie extraction reads `document.cookie`, so HttpOnly cookies are not included.
 
 ## How it works
 
-Chrome doesn't expose tab groups through its AppleScript API, so this extension uses two approaches:
+Chrome's AppleScript dictionary does not expose tab groups, so the extension combines two mechanisms:
 
-- **AppleScript** for standard tab operations (URL, title, cookies, HTML, switching tabs)
-- **macOS Accessibility API** (System Events) to walk Chrome's UI tree and detect tab groups
+- **AppleScript** for tab operations: URLs, titles, cookies, HTML, and switching tabs
+- **macOS Accessibility API** (System Events) to read tab groups from Chrome's tab strip
+
+Tab group detection parses Chrome's accessibility labels, which are English-only — it may not work with Chrome running in another language.
 
 ## Development
 
 ```bash
 npm install
 npm run dev        # hot reload in Raycast
-npm test           # run tests
-npm run lint       # lint
+npm test           # unit tests
+npm run lint       # lint + format check
 ```
+
+The extension is not on the Raycast Store; `npm run dev` installs it into your local Raycast.
 
 ## License
 

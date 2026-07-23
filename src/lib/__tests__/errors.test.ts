@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  AccessibilityPermissionError,
   AutomationPermissionError,
   BrowserNotRunningError,
+  JavaScriptDisabledError,
   NoWindowError,
   UnexpectedResponseError,
 } from "../errors";
@@ -32,6 +34,25 @@ describe("AutomationPermissionError", () => {
     expect(err.name).toBe("AutomationPermissionError");
     expect(err.message).toContain("System Settings");
     expect(err.message).toContain("Automation");
+    expect(err).toBeInstanceOf(Error);
+  });
+});
+
+describe("AccessibilityPermissionError", () => {
+  it("has correct name and message with instructions", () => {
+    const err = new AccessibilityPermissionError();
+    expect(err.name).toBe("AccessibilityPermissionError");
+    expect(err.message).toContain("System Settings");
+    expect(err.message).toContain("Accessibility");
+    expect(err).toBeInstanceOf(Error);
+  });
+});
+
+describe("JavaScriptDisabledError", () => {
+  it("has correct name and message with instructions", () => {
+    const err = new JavaScriptDisabledError();
+    expect(err.name).toBe("JavaScriptDisabledError");
+    expect(err.message).toContain("Allow JavaScript from Apple Events");
     expect(err).toBeInstanceOf(Error);
   });
 });

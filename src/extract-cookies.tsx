@@ -10,7 +10,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getActiveTabCookies } from "./lib/chrome";
 import { parseCookieString } from "./lib/cookies";
-import { escapeCodeFences, escapeMarkdownInline } from "./lib/markdown";
+import {
+  escapeMarkdownInline,
+  escapeMarkdownLinkUrl,
+  fencedCodeBlock,
+} from "./lib/markdown";
 import { showChromeError } from "./lib/toast-error";
 
 interface State {
@@ -74,8 +78,8 @@ export default function Command() {
 
     const sections: string[] = [];
     if (title) sections.push(`# ${escapeMarkdownInline(title)}`);
-    if (url) sections.push(url);
-    if (json) sections.push("```json\n" + escapeCodeFences(json) + "\n```");
+    if (url) sections.push(`<${escapeMarkdownLinkUrl(url)}>`);
+    if (json) sections.push(fencedCodeBlock(json, "json"));
     return sections.join("\n\n");
   }, [error, json, loading, title, url]);
 

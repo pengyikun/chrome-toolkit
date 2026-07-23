@@ -1,5 +1,4 @@
 import { showHUD, showToast, Toast } from "@raycast/api";
-import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getActiveTabUrl } from "./lib/chrome";
@@ -7,14 +6,11 @@ import { showChromeError } from "./lib/toast-error";
 
 const execFileAsync = promisify(execFile);
 
-const ATLAS_APP_PATHS = [
-  "/Applications/ChatGPT Atlas.app",
-  `${process.env.HOME}/Applications/ChatGPT Atlas.app`,
-];
-
-function findAtlasAppPath(): string | null {
-  return ATLAS_APP_PATHS.find((p) => existsSync(p)) ?? null;
-}
+/**
+ * App name resolved by Launch Services, so the app is found wherever it is
+ * installed rather than only at hardcoded paths.
+ */
+const ATLAS_APP_NAME = "ChatGPT Atlas";
 
 function isValidWebUrl(urlString: string): boolean {
   try {
@@ -25,19 +21,18 @@ function isValidWebUrl(urlString: string): boolean {
   }
 }
 
+/** True when `open` failed because the app is not installed. */
+function isAppNotFound(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const stderr = (error as { stderr?: string }).stderr ?? "";
+  return (
+    error.message.includes("Unable to find application") ||
+    stderr.includes("Unable to find application")
+  );
+}
+
 export default async function Command() {
   try {
-    const atlasPath = findAtlasAppPath();
-    if (!atlasPath) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Atlas Not Found",
-        message:
-          "ChatGPT Atlas browser could not be found in the Applications folder.",
-      });
-      return;
-    }
-
     const url = await getActiveTabUrl();
 
     if (!isValidWebUrl(url)) {
@@ -49,9 +44,17 @@ export default async function Command() {
       return;
     }
 
-    await execFileAsync("open", ["-a", atlasPath, url]);
+    await execFileAsync("open", ["-a", ATLAS_APP_NAME, url]);
     await showHUD("Opened in Atlas ✓");
   } catch (error) {
+    if (isAppNotFound(error)) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Atlas Not Found",
+        message: "The ChatGPT Atlas browser does not appear to be installed.",
+      });
+      return;
+    }
     await showChromeError(error, "open in Atlas");
   }
 }
