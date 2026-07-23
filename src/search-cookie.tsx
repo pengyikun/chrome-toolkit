@@ -1,5 +1,5 @@
-import { Action, ActionPanel, Icon, List } from "@raycast/api";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Action, ActionPanel, Icon, Keyboard, List } from "@raycast/api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getActiveTabCookies } from "./lib/chrome";
 import { Cookie, parseCookieString } from "./lib/cookies";
 import { showChromeError } from "./lib/toast-error";
@@ -51,9 +51,10 @@ export default function Command() {
     loadCookies();
   }, [loadCookies]);
 
-  const filtered = state.cookies.filter((c) =>
-    c.name.toLowerCase().includes(searchText.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    const query = searchText.toLowerCase();
+    return state.cookies.filter((c) => c.name.toLowerCase().includes(query));
+  }, [state.cookies, searchText]);
 
   return (
     <List
@@ -79,18 +80,17 @@ export default function Command() {
                 <Action.CopyToClipboard
                   title="Copy Cookie Value"
                   content={cookie.value}
-                  shortcut={{ modifiers: [], key: "return" }}
                 />
                 <Action.CopyToClipboard
                   title="Copy Cookie Name"
                   content={cookie.name}
-                  shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+                  shortcut={Keyboard.Shortcut.Common.Copy}
                 />
                 <Action
                   title="Refresh"
                   icon={Icon.RotateClockwise}
                   onAction={loadCookies}
-                  shortcut={{ modifiers: ["cmd"], key: "r" }}
+                  shortcut={Keyboard.Shortcut.Common.Refresh}
                 />
               </ActionPanel>
             }

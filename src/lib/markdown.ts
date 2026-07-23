@@ -35,9 +35,14 @@ export function escapeMarkdownInline(text: string): string {
 }
 
 /**
- * Escapes triple-backtick sequences inside code blocks to prevent
- * premature closing of Markdown fenced code blocks.
+ * Wraps content in a fenced code block whose fence is longer than any
+ * backtick run inside it, so untrusted content can never terminate the
+ * block early — and is displayed verbatim, without escaping artifacts.
  */
-export function escapeCodeFences(input: string): string {
-  return input.replace(/```/g, "\\`\\`\\`");
+export function fencedCodeBlock(content: string, language = ""): string {
+  const longestRun =
+    content.match(/`+/g)?.reduce((max, run) => Math.max(max, run.length), 0) ??
+    0;
+  const fence = "`".repeat(Math.max(3, longestRun + 1));
+  return `${fence}${language}\n${content}\n${fence}`;
 }

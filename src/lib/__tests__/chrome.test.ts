@@ -15,8 +15,10 @@ import {
   switchToTab,
 } from "../chrome";
 import {
+  AccessibilityPermissionError,
   AutomationPermissionError,
   BrowserNotRunningError,
+  JavaScriptDisabledError,
   NoWindowError,
   UnexpectedResponseError,
 } from "../errors";
@@ -51,12 +53,16 @@ describe("getActiveTabUrl", () => {
   });
 
   it("throws BrowserNotRunningError on error number 1001", async () => {
-    mockRunAppleScript.mockRejectedValue(new Error("error number 1001"));
+    mockRunAppleScript.mockRejectedValue(
+      new Error("execution error: CHROME_NOT_RUNNING (1001)"),
+    );
     await expect(getActiveTabUrl()).rejects.toThrow(BrowserNotRunningError);
   });
 
   it("throws NoWindowError on error number 1002", async () => {
-    mockRunAppleScript.mockRejectedValue(new Error("error number 1002"));
+    mockRunAppleScript.mockRejectedValue(
+      new Error("execution error: CHROME_NO_WINDOW (1002)"),
+    );
     await expect(getActiveTabUrl()).rejects.toThrow(NoWindowError);
   });
 
@@ -213,6 +219,17 @@ describe("getActiveTabCookies", () => {
     const callArgs = mockRunAppleScript.mock.calls[0];
     expect(callArgs[1]).toEqual({ timeout: 5_000 });
   });
+
+  it("throws JavaScriptDisabledError when Apple Events JavaScript is off", async () => {
+    mockRunAppleScript.mockRejectedValue(
+      new Error(
+        "Executing JavaScript through AppleScript is turned off. To turn it on, from the menu bar, go to View > Developer > Allow JavaScript from Apple Events.",
+      ),
+    );
+    await expect(getActiveTabCookies()).rejects.toThrow(
+      JavaScriptDisabledError,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -303,7 +320,8 @@ describe("getTabGroups", () => {
 
   // getTabGroups makes 2 AppleScript calls:
   //   1st: Chrome tab titles (FS-separated)
-  //   2nd: AX tree groups (RS-separated records, FS-separated fields: desc, startIndex, tabCount)
+  //   2nd: AX tree records (RS-separated), one per tab-strip element:
+  //        "T" for an ungrouped tab, or "G" FS description FS visibleTabCount
 
   it("returns empty array when AX result is empty", async () => {
     mockRunAppleScript
@@ -313,14 +331,11 @@ describe("getTabGroups", () => {
     expect(groups).toEqual([]);
   });
 
-  // AX result format: ungroupedIndices FS groupRecords
-  // groupRecords: RS-separated, each: desc FS startIndex FS tabCount
-
   it("parses a single expanded group with correct tab titles", async () => {
     mockRunAppleScript
       .mockResolvedValueOnce(`Tab One${FS}Tab Two`) // titles
       .mockResolvedValueOnce(
-        `${FS} my-group - "Tab One" and 1 Other Tab - Expanded${FS}1${FS}2`,
+        `G${FS} my-group - "Tab One" and 1 Other Tab - Expanded${FS}2`,
       );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(1);
@@ -330,15 +345,38 @@ describe("getTabGroups", () => {
     expect(groups[0].tabIndices).toEqual([1, 2]);
   });
 
-  it("parses a collapsed group", async () => {
+  it("parses a collapsed group using the count from its description", async () => {
     mockRunAppleScript
       .mockResolvedValueOnce(`Tab A${FS}Tab B`) // titles
       .mockResolvedValueOnce(
-        `${FS} work - "Tab A" and 1 Other Tab - Collapsed${FS}1${FS}2`,
+        `G${FS} work - "Tab A" and 1 Other Tab - Collapsed${FS}0`,
       );
     const groups = await getTabGroups();
     expect(groups[0].collapsed).toBe(true);
     expect(groups[0].tabs).toEqual(["Tab A", "Tab B"]);
+    expect(groups[0].tabIndices).toEqual([1, 2]);
+  });
+
+  it("keeps indices aligned after a collapsed group with many tabs", async () => {
+    // Regression: a collapsed group with 4 hidden tabs used to be counted
+    // as 2, shifting every subsequent group's Chrome tab indices.
+    mockRunAppleScript
+      .mockResolvedValueOnce(
+        `T1${FS}T2${FS}T3${FS}T4${FS}T5${FS}T6${FS}T7${FS}T8`,
+      )
+      .mockResolvedValueOnce(
+        `G${FS} work - "T1" and 4 Other Tabs - Collapsed${FS}0${RS}` +
+          `G${FS} play - "T6" - Expanded${FS}2${RS}T`,
+      );
+    const groups = await getTabGroups();
+    expect(groups).toHaveLength(3);
+    expect(groups[0].tabIndices).toEqual([1, 2, 3, 4, 5]);
+    expect(groups[0].tabs).toEqual(["T1", "T2", "T3", "T4", "T5"]);
+    expect(groups[1].tabIndices).toEqual([6, 7]);
+    expect(groups[1].tabs).toEqual(["T6", "T7"]);
+    expect(groups[2].name).toBe("Ungrouped");
+    expect(groups[2].tabIndices).toEqual([8]);
+    expect(groups[2].tabs).toEqual(["T8"]);
   });
 
   it("parses multiple groups with ungrouped tabs", async () => {
@@ -348,7 +386,9 @@ describe("getTabGroups", () => {
         `Ungrouped1${FS}Ungrouped2${FS}Ungrouped3${FS}G1-Tab1${FS}G1-Tab2${FS}G2-Tab1`,
       )
       .mockResolvedValueOnce(
-        `1,2,3${FS} group 1 - "G1-Tab1" - Expanded${FS}4${FS}2${RS} group 2 - "G2-Tab1" - Expanded${FS}6${FS}1`,
+        `T${RS}T${RS}T${RS}` +
+          `G${FS} group 1 - "G1-Tab1" - Expanded${FS}2${RS}` +
+          `G${FS} group 2 - "G2-Tab1" - Expanded${FS}1`,
       );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(3);
@@ -367,24 +407,63 @@ describe("getTabGroups", () => {
     mockRunAppleScript
       .mockResolvedValueOnce("") // empty titles
       .mockResolvedValueOnce(
-        `${FS} work - "Fallback Title" and 1 Other Tab - Collapsed${FS}1${FS}2`,
+        `G${FS} work - "Fallback Title" and 1 Other Tab - Collapsed${FS}0`,
       );
     const groups = await getTabGroups();
     expect(groups[0].tabs).toEqual(["Fallback Title", "Tab 2"]);
   });
 
+  it("ignores malformed records", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab A${FS}Tab B`)
+      .mockResolvedValueOnce(`X${RS}T${RS}garbage${FS}stuff`);
+    const groups = await getTabGroups();
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("Ungrouped");
+    expect(groups[0].tabIndices).toEqual([1]);
+  });
+
   it("throws BrowserNotRunningError on error 1001", async () => {
     mockRunAppleScript.mockRejectedValueOnce(
-      new Error("CHROME_NOT_RUNNING number 1001"),
+      new Error("execution error: CHROME_NOT_RUNNING (1001)"),
     );
     await expect(getTabGroups()).rejects.toThrow(BrowserNotRunningError);
   });
 
   it("throws NoWindowError on error 1002", async () => {
     mockRunAppleScript.mockRejectedValueOnce(
-      new Error("CHROME_NO_WINDOW number 1002"),
+      new Error("execution error: CHROME_NO_WINDOW (1002)"),
     );
     await expect(getTabGroups()).rejects.toThrow(NoWindowError);
+  });
+
+  it("throws UnexpectedResponseError when the tab strip cannot be read", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab A`)
+      .mockRejectedValueOnce(
+        new Error("execution error: CHROME_TAB_STRIP (1004)"),
+      );
+    await expect(getTabGroups()).rejects.toThrow(UnexpectedResponseError);
+  });
+
+  it("throws AccessibilityPermissionError when assistive access is denied", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab A`)
+      .mockRejectedValueOnce(
+        new Error(
+          "execution error: Raycast is not allowed assistive access. (-25211)",
+        ),
+      );
+    await expect(getTabGroups()).rejects.toThrow(AccessibilityPermissionError);
+  });
+
+  it("recognises the assistive-access error code on localised macOS", async () => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(`Tab A`)
+      .mockRejectedValueOnce(
+        new Error("Ausführungsfehler: Kein Zugriff für Hilfsgeräte. (-25211)"),
+      );
+    await expect(getTabGroups()).rejects.toThrow(AccessibilityPermissionError);
   });
 });
 
@@ -399,16 +478,35 @@ describe("switchToTab", () => {
     expect(script).toContain("set active tab index of front window to 3");
   });
 
+  it("rejects non-integer indices without calling AppleScript", async () => {
+    await expect(switchToTab(1.5)).rejects.toThrow(RangeError);
+    await expect(switchToTab(NaN)).rejects.toThrow(RangeError);
+    expect(mockRunAppleScript).not.toHaveBeenCalled();
+  });
+
+  it("rejects indices below 1 without calling AppleScript", async () => {
+    await expect(switchToTab(0)).rejects.toThrow(RangeError);
+    await expect(switchToTab(-2)).rejects.toThrow(RangeError);
+    expect(mockRunAppleScript).not.toHaveBeenCalled();
+  });
+
+  it("throws UnexpectedResponseError when the tab no longer exists", async () => {
+    mockRunAppleScript.mockRejectedValueOnce(
+      new Error("execution error: TAB_OUT_OF_RANGE (1003)"),
+    );
+    await expect(switchToTab(9)).rejects.toThrow(UnexpectedResponseError);
+  });
+
   it("throws BrowserNotRunningError on error 1001", async () => {
     mockRunAppleScript.mockRejectedValueOnce(
-      new Error("CHROME_NOT_RUNNING number 1001"),
+      new Error("execution error: CHROME_NOT_RUNNING (1001)"),
     );
     await expect(switchToTab(1)).rejects.toThrow(BrowserNotRunningError);
   });
 
   it("throws NoWindowError on error 1002", async () => {
     mockRunAppleScript.mockRejectedValueOnce(
-      new Error("CHROME_NO_WINDOW number 1002"),
+      new Error("execution error: CHROME_NO_WINDOW (1002)"),
     );
     await expect(switchToTab(1)).rejects.toThrow(NoWindowError);
   });

@@ -24,6 +24,26 @@ export class AutomationPermissionError extends Error {
   }
 }
 
+/** Raycast does not have Accessibility permission (needed for UI scripting). */
+export class AccessibilityPermissionError extends Error {
+  constructor() {
+    super(
+      "Raycast is not permitted to read Chrome's UI. Enable Raycast in System Settings → Privacy & Security → Accessibility.",
+    );
+    this.name = "AccessibilityPermissionError";
+  }
+}
+
+/** Chrome's "Allow JavaScript from Apple Events" setting is turned off. */
+export class JavaScriptDisabledError extends Error {
+  constructor() {
+    super(
+      "Chrome blocks JavaScript from Apple Events. In Chrome, enable View → Developer → Allow JavaScript from Apple Events.",
+    );
+    this.name = "JavaScriptDisabledError";
+  }
+}
+
 /** Chrome returned an unparseable response. */
 export class UnexpectedResponseError extends Error {
   constructor(detail?: string) {

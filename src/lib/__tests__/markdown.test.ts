@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  escapeCodeFences,
   escapeMarkdownInline,
   escapeMarkdownLinkText,
   escapeMarkdownLinkUrl,
+  fencedCodeBlock,
 } from "../markdown";
 
 // ---------------------------------------------------------------------------
@@ -119,26 +119,32 @@ describe("escapeMarkdownInline", () => {
 });
 
 // ---------------------------------------------------------------------------
-// escapeCodeFences
+// fencedCodeBlock
 // ---------------------------------------------------------------------------
-describe("escapeCodeFences", () => {
-  it("returns plain text unchanged", () => {
-    expect(escapeCodeFences("hello world")).toBe("hello world");
+describe("fencedCodeBlock", () => {
+  it("wraps plain content in a three-backtick fence", () => {
+    expect(fencedCodeBlock("hello world", "html")).toBe(
+      "```html\nhello world\n```",
+    );
   });
 
-  it("escapes triple backticks", () => {
-    expect(escapeCodeFences("before ``` after")).toBe("before \\`\\`\\` after");
+  it("preserves content verbatim", () => {
+    const content = "<body>\n<p>a `code` span</p>\n</body>";
+    expect(fencedCodeBlock(content, "html")).toContain(content);
   });
 
-  it("escapes multiple occurrences", () => {
-    expect(escapeCodeFences("``` code ```")).toBe("\\`\\`\\` code \\`\\`\\`");
+  it("lengthens the fence beyond any backtick run in the content", () => {
+    const result = fencedCodeBlock("before ``` after", "html");
+    expect(result).toBe("````html\nbefore ``` after\n````");
   });
 
-  it("handles empty string", () => {
-    expect(escapeCodeFences("")).toBe("");
+  it("handles content with very long backtick runs", () => {
+    const result = fencedCodeBlock("``````", "");
+    expect(result.startsWith("```````\n")).toBe(true);
+    expect(result.endsWith("\n```````")).toBe(true);
   });
 
-  it("leaves single and double backticks alone", () => {
-    expect(escapeCodeFences("` `` `")).toBe("` `` `");
+  it("handles empty content and no language", () => {
+    expect(fencedCodeBlock("")).toBe("```\n\n```");
   });
 });

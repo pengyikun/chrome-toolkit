@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { showToast } from "@raycast/api";
 import { showChromeError } from "../toast-error";
 import {
+  AccessibilityPermissionError,
   AutomationPermissionError,
   BrowserNotRunningError,
+  JavaScriptDisabledError,
   NoWindowError,
 } from "../errors";
 
@@ -36,6 +38,26 @@ describe("showChromeError", () => {
     expect(mockShowToast).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringContaining("Automation"),
+      }),
+    );
+  });
+
+  it("shows 'Accessibility Permission Required' for AccessibilityPermissionError", async () => {
+    await showChromeError(new AccessibilityPermissionError(), "test action");
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Accessibility Permission Required",
+        message: expect.stringContaining("Accessibility"),
+      }),
+    );
+  });
+
+  it("shows JavaScript guidance for JavaScriptDisabledError", async () => {
+    await showChromeError(new JavaScriptDisabledError(), "test action");
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "JavaScript From Apple Events Is Off",
+        message: expect.stringContaining("Allow JavaScript from Apple Events"),
       }),
     );
   });

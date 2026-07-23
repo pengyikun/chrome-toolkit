@@ -40,6 +40,14 @@ describe("parseCookieString", () => {
     ]);
   });
 
+  it("drops empty segments from trailing or doubled semicolons", () => {
+    expect(parseCookieString("a=1; ;")).toEqual([{ name: "a", value: "1" }]);
+    expect(parseCookieString("a=1;;b=2")).toEqual([
+      { name: "a", value: "1" },
+      { name: "b", value: "2" },
+    ]);
+  });
+
   it("trims leading whitespace of each pair but preserves inner spacing", () => {
     expect(parseCookieString("  a = 1 ;  b = 2 ")).toEqual([
       { name: "a ", value: " 1" },
