@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPageMarkdown,
   escapeMarkdownInline,
   escapeMarkdownLinkText,
   escapeMarkdownLinkUrl,
@@ -146,5 +147,75 @@ describe("fencedCodeBlock", () => {
 
   it("handles empty content and no language", () => {
     expect(fencedCodeBlock("")).toBe("```\n\n```");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPageMarkdown
+// ---------------------------------------------------------------------------
+describe("buildPageMarkdown", () => {
+  it("renders title heading, autolinked URL, and fenced body", () => {
+    const result = buildPageMarkdown({
+      title: "My Page",
+      url: "https://example.com",
+      body: '{"a":1}',
+      language: "json",
+    });
+    expect(result).toBe(
+      '# My Page\n\n<https://example.com>\n\n```json\n{"a":1}\n```',
+    );
+  });
+
+  it("omits empty sections", () => {
+    expect(buildPageMarkdown({ title: "", url: "", body: "x" })).toBe(
+      "```\nx\n```",
+    );
+    expect(buildPageMarkdown({ title: "T", url: "", body: "" })).toBe("# T");
+  });
+
+  it("escapes untrusted title and URL", () => {
+    const result = buildPageMarkdown({
+      title: "![x](https://evil.com/p.png)",
+      url: "https://example.com/<a b>",
+      body: "",
+    });
+    expect(result).not.toMatch(/!\[.*\]\(.*\)/);
+    expect(result).toContain("<https://example.com/%3Ca%20b%3E>");
+  });
+
+  it("truncates the body at maxBodyChars with a notice", () => {
+    const result = buildPageMarkdown({
+      title: "",
+      url: "",
+      body: "abcdef",
+      maxBodyChars: 4,
+    });
+    expect(result).toContain("```\nabcd\n```");
+    expect(result).not.toContain("abcde");
+    expect(result).toContain("Preview truncated");
+    expect(result).toContain("6-character");
+  });
+
+  it("does not split a surrogate pair at the truncation boundary", () => {
+    // "ab" + 😀 (2 UTF-16 units); a cut at 3 would leave a lone surrogate
+    const result = buildPageMarkdown({
+      title: "",
+      url: "",
+      body: "ab\u{1F600}z",
+      maxBodyChars: 3,
+    });
+    expect(result).toContain("```\nab\n```");
+    expect(result).not.toContain("\ud83d");
+    expect(result).toContain("Preview truncated");
+  });
+
+  it("shows no truncation notice when the body fits exactly", () => {
+    const result = buildPageMarkdown({
+      title: "",
+      url: "",
+      body: "abcd",
+      maxBodyChars: 4,
+    });
+    expect(result).toBe("```\nabcd\n```");
   });
 });

@@ -7,81 +7,55 @@ import {
   showToast,
   Toast,
 } from "@raycast/api";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { getActiveTabCookies } from "./lib/chrome";
 import { parseCookieString } from "./lib/cookies";
-import {
-  escapeMarkdownInline,
-  escapeMarkdownLinkUrl,
-  fencedCodeBlock,
-} from "./lib/markdown";
-import { showChromeError } from "./lib/toast-error";
+import { buildPageMarkdown } from "./lib/markdown";
+import { useChromeData } from "./lib/use-chrome-data";
 
-interface State {
-  loading: boolean;
+interface CookiePage {
   json: string;
+  count: number;
   title: string;
   url: string;
-  error: string;
 }
 
-const INITIAL_STATE: State = {
-  loading: true,
-  json: "",
-  title: "",
-  url: "",
-  error: "",
-};
+async function fetchCookiePage(): Promise<CookiePage> {
+  const page = await getActiveTabCookies();
+  const cookies = parseCookieString(page.cookies);
+  return {
+    json: JSON.stringify(cookies, null, 2),
+    count: cookies.length,
+    title: page.title,
+    url: page.url,
+  };
+}
 
 export default function Command() {
-  const [state, setState] = useState<State>(INITIAL_STATE);
-  const requestIdRef = useRef(0);
-
-  const loadCookies = useCallback(async () => {
-    const id = ++requestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: "" }));
-    try {
-      const page = await getActiveTabCookies();
-      if (id !== requestIdRef.current) return;
-      const cookies = parseCookieString(page.cookies);
-      const json = JSON.stringify(cookies, null, 2);
-      setState({
-        loading: false,
-        json,
-        title: page.title,
-        url: page.url,
-        error: "",
-      });
-      await Clipboard.copy(json);
+  const { data, loading, error, reload } = useChromeData({
+    fetch: fetchCookiePage,
+    actionLabel: "extract cookies",
+    onSuccess: async (page) => {
+      // Cookies are session credentials — keep them out of clipboard history.
+      await Clipboard.copy(page.json, { concealed: true });
       await showToast({
         style: Toast.Style.Success,
-        title: `${cookies.length} Cookie${cookies.length === 1 ? "" : "s"} Copied to Clipboard`,
+        title: `${page.count} Cookie${page.count === 1 ? "" : "s"} Copied to Clipboard`,
         message: page.title || page.url || "Active tab",
       });
-    } catch (error) {
-      if (id !== requestIdRef.current) return;
-      const message = error instanceof Error ? error.message : String(error);
-      setState((prev) => ({ ...prev, loading: false, error: message }));
-      await showChromeError(error, "extract cookies");
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCookies();
-  }, [loadCookies]);
-
-  const { loading, json, title, url, error } = state;
+    },
+  });
 
   const markdown = useMemo(() => {
     if (error) return `**Error**\n\n${error}`;
-    if (loading && !json) return "Extracting cookies from Google Chrome…";
-
-    const sections: string[] = [];
-    if (title) sections.push(`# ${escapeMarkdownInline(title)}`);
-    if (url) sections.push(`<${escapeMarkdownLinkUrl(url)}>`);
-    if (json) sections.push(fencedCodeBlock(json, "json"));
-    return sections.join("\n\n");
-  }, [error, json, loading, title, url]);
+    if (!data) return "Extracting cookies from Google Chrome…";
+    return buildPageMarkdown({
+      title: data.title,
+      url: data.url,
+      body: data.json,
+      language: "json",
+    });
+  }, [error, data]);
 
   return (
     <Detail
@@ -89,14 +63,18 @@ export default function Command() {
       markdown={markdown}
       actions={
         <ActionPanel>
-          {!error && json && (
-            <Action.CopyToClipboard title="Copy Cookies JSON" content={json} />
+          {!error && data?.json && (
+            <Action.CopyToClipboard
+              title="Copy Cookies JSON"
+              content={data.json}
+              concealed
+            />
           )}
-          {url && <Action.OpenInBrowser url={url} />}
+          {data?.url && <Action.OpenInBrowser url={data.url} />}
           <Action
             title="Refresh"
             icon={Icon.RotateClockwise}
-            onAction={loadCookies}
+            onAction={reload}
           />
         </ActionPanel>
       }

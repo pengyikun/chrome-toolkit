@@ -8,12 +8,12 @@ export default defineConfig({
     },
   },
   test: {
-    globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
-      include: ["src/lib/**/*.ts"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/__mocks__/**", "src/**/__tests__/**"],
     },
   },
 });

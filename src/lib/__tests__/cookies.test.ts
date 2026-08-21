@@ -48,10 +48,16 @@ describe("parseCookieString", () => {
     ]);
   });
 
-  it("trims leading whitespace of each pair but preserves inner spacing", () => {
+  it("trims whitespace around names and values", () => {
     expect(parseCookieString("  a = 1 ;  b = 2 ")).toEqual([
-      { name: "a ", value: " 1" },
-      { name: "b ", value: " 2" },
+      { name: "a", value: "1" },
+      { name: "b", value: "2" },
+    ]);
+  });
+
+  it("does not trim whitespace inside a value", () => {
+    expect(parseCookieString("msg=hello world")).toEqual([
+      { name: "msg", value: "hello world" },
     ]);
   });
 

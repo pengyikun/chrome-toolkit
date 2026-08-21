@@ -40,6 +40,7 @@ Tab group detection parses Chrome's accessibility labels, which are English-only
 npm install
 npm run dev        # hot reload in Raycast
 npm test           # unit tests
+npm run typecheck  # TypeScript type check
 npm run lint       # lint + format check
 ```
 

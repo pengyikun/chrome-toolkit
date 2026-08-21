@@ -46,3 +46,43 @@ export function fencedCodeBlock(content: string, language = ""): string {
   const fence = "`".repeat(Math.max(3, longestRun + 1));
   return `${fence}${language}\n${content}\n${fence}`;
 }
+
+/**
+ * Builds the Detail-view Markdown for an extracted page: escaped title
+ * heading, autolinked URL, and the body in a safe fenced code block.
+ * When `maxBodyChars` is given and the body exceeds it, the display is
+ * truncated with a notice (the clipboard always receives the full body).
+ */
+export function buildPageMarkdown(options: {
+  title: string;
+  url: string;
+  body: string;
+  language?: string;
+  maxBodyChars?: number;
+}): string {
+  const { title, url, body, language = "", maxBodyChars } = options;
+  const sections: string[] = [];
+  if (title) sections.push(`# ${escapeMarkdownInline(title)}`);
+  if (url) sections.push(`<${escapeMarkdownLinkUrl(url)}>`);
+  if (body) {
+    const max = maxBodyChars ?? body.length;
+    let shown = body.slice(0, max);
+    // Never split a surrogate pair at the truncation boundary — a lone
+    // high surrogate would render as a replacement character.
+    const lastCode = shown.charCodeAt(shown.length - 1);
+    if (
+      shown.length < body.length &&
+      lastCode >= 0xd800 &&
+      lastCode <= 0xdbff
+    ) {
+      shown = shown.slice(0, -1);
+    }
+    sections.push(fencedCodeBlock(shown, language));
+    if (body.length > max) {
+      sections.push(
+        `_Preview truncated — the full ${body.length.toLocaleString()}-character content is on the clipboard._`,
+      );
+    }
+  }
+  return sections.join("\n\n");
+}

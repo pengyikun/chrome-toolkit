@@ -1,73 +1,45 @@
 import { Action, ActionPanel, Icon, Keyboard, List } from "@raycast/api";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { getActiveTabCookies } from "./lib/chrome";
 import { Cookie, parseCookieString } from "./lib/cookies";
-import { showChromeError } from "./lib/toast-error";
+import { useChromeData } from "./lib/use-chrome-data";
 
-interface State {
-  loading: boolean;
-  cookies: Cookie[];
-  title: string;
-  url: string;
-  error: string;
+async function fetchCookies(): Promise<Cookie[]> {
+  const page = await getActiveTabCookies();
+  return parseCookieString(page.cookies);
 }
 
-const INITIAL_STATE: State = {
-  loading: true,
-  cookies: [],
-  title: "",
-  url: "",
-  error: "",
-};
-
 export default function Command() {
-  const [state, setState] = useState<State>(INITIAL_STATE);
   const [searchText, setSearchText] = useState("");
-  const requestIdRef = useRef(0);
-
-  const loadCookies = useCallback(async () => {
-    const id = ++requestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: "" }));
-    try {
-      const page = await getActiveTabCookies();
-      if (id !== requestIdRef.current) return;
-      const cookies = parseCookieString(page.cookies);
-      setState({
-        loading: false,
-        cookies,
-        title: page.title,
-        url: page.url,
-        error: "",
-      });
-    } catch (error) {
-      if (id !== requestIdRef.current) return;
-      const message = error instanceof Error ? error.message : String(error);
-      setState((prev) => ({ ...prev, loading: false, error: message }));
-      await showChromeError(error, "extract cookies");
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCookies();
-  }, [loadCookies]);
+  const { data, loading, error, reload } = useChromeData({
+    fetch: fetchCookies,
+    actionLabel: "extract cookies",
+  });
 
   const filtered = useMemo(() => {
+    const cookies = data ?? [];
     const query = searchText.toLowerCase();
-    return state.cookies.filter((c) => c.name.toLowerCase().includes(query));
-  }, [state.cookies, searchText]);
+    return cookies.filter((c) => c.name.toLowerCase().includes(query));
+  }, [data, searchText]);
 
   return (
     <List
-      isLoading={state.loading}
+      isLoading={loading}
       searchBarPlaceholder="Search cookie by name…"
       onSearchTextChange={setSearchText}
       throttle
     >
-      {state.error ? (
+      {error ? (
         <List.EmptyView
           icon={Icon.ExclamationMark}
           title="Error"
-          description={state.error}
+          description={error}
+        />
+      ) : filtered.length === 0 && !loading ? (
+        <List.EmptyView
+          icon={Icon.MagnifyingGlass}
+          title="No Cookies Found"
+          description="The page has no cookies readable from JavaScript (HttpOnly cookies are not visible)."
         />
       ) : (
         filtered.map((cookie, index) => (
@@ -80,6 +52,7 @@ export default function Command() {
                 <Action.CopyToClipboard
                   title="Copy Cookie Value"
                   content={cookie.value}
+                  concealed
                 />
                 <Action.CopyToClipboard
                   title="Copy Cookie Name"
@@ -89,7 +62,7 @@ export default function Command() {
                 <Action
                   title="Refresh"
                   icon={Icon.RotateClockwise}
-                  onAction={loadCookies}
+                  onAction={reload}
                   shortcut={Keyboard.Shortcut.Common.Refresh}
                 />
               </ActionPanel>

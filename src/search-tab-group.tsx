@@ -5,60 +5,32 @@ import {
   Keyboard,
   List,
   showHUD,
-  showToast,
-  Toast,
 } from "@raycast/api";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getTabGroups, switchToTab, TabGroup } from "./lib/chrome";
+import { useCallback, useMemo, useState } from "react";
+import { getTabGroups, switchToTab } from "./lib/chrome";
 import { showChromeError } from "./lib/toast-error";
-
-interface State {
-  loading: boolean;
-  groups: TabGroup[];
-  error: string;
-}
-
-const INITIAL_STATE: State = {
-  loading: true,
-  groups: [],
-  error: "",
-};
+import { useChromeData } from "./lib/use-chrome-data";
 
 export default function Command() {
-  const [state, setState] = useState<State>(INITIAL_STATE);
   const [searchText, setSearchText] = useState("");
-  const requestIdRef = useRef(0);
-
-  const loadGroups = useCallback(async () => {
-    const id = ++requestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: "" }));
-    try {
-      const groups = await getTabGroups();
-      if (id !== requestIdRef.current) return;
-      setState({ loading: false, groups, error: "" });
-    } catch (error) {
-      if (id !== requestIdRef.current) return;
-      const message = error instanceof Error ? error.message : String(error);
-      setState((prev) => ({ ...prev, loading: false, error: message }));
-      await showChromeError(error, "get tab groups");
-    }
-  }, []);
-
-  useEffect(() => {
-    loadGroups();
-  }, [loadGroups]);
+  const { data, loading, error, reload } = useChromeData({
+    fetch: getTabGroups,
+    actionLabel: "get tab groups",
+  });
+  const groups = useMemo(() => data ?? [], [data]);
 
   const handleSwitch = useCallback(
-    async (chromeIndex: number, tabTitle: string) => {
+    async (chromeIndex: number | undefined, tabTitle: string) => {
       try {
+        if (chromeIndex === undefined) {
+          throw new RangeError(
+            "The tab's position is no longer known — refresh the list",
+          );
+        }
         await switchToTab(chromeIndex);
         await showHUD(`Switched to "${tabTitle}" ✓`);
       } catch (error) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Failed to Switch",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        await showChromeError(error, "switch tab");
       }
     },
     [],
@@ -66,28 +38,28 @@ export default function Command() {
 
   const query = searchText.toLowerCase();
   const filtered = useMemo(() => {
-    if (!query) return state.groups;
-    return state.groups.filter(
+    if (!query) return groups;
+    return groups.filter(
       (g) =>
         g.name.toLowerCase().includes(query) ||
         g.tabs.some((t) => t.toLowerCase().includes(query)),
     );
-  }, [state.groups, query]);
+  }, [groups, query]);
 
   return (
     <List
-      isLoading={state.loading}
+      isLoading={loading}
       searchBarPlaceholder="Search tab groups or tabs…"
       onSearchTextChange={setSearchText}
       throttle
     >
-      {state.error ? (
+      {error ? (
         <List.EmptyView
           icon={Icon.ExclamationMark}
           title="Error"
-          description={state.error}
+          description={error}
         />
-      ) : filtered.length === 0 && !state.loading ? (
+      ) : filtered.length === 0 && !loading ? (
         <List.EmptyView
           icon={Icon.AppWindowGrid3x3}
           title="No Tab Groups Found"
@@ -123,7 +95,7 @@ export default function Command() {
                       <Action
                         title="Refresh"
                         icon={Icon.RotateClockwise}
-                        onAction={loadGroups}
+                        onAction={reload}
                         shortcut={Keyboard.Shortcut.Common.Refresh}
                       />
                     </ActionPanel>
