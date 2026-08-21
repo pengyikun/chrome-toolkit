@@ -94,6 +94,15 @@ describe("getActiveTabUrl", () => {
     );
   });
 
+  it("does not treat an incidental mid-message (1001) as a sentinel", async () => {
+    mockRunAppleScript.mockRejectedValue(
+      new Error("error in step (1001) of unrelated script"),
+    );
+    await expect(getActiveTabUrl()).rejects.toThrow(
+      "Could not communicate with Google Chrome",
+    );
+  });
+
   it("handles non-Error rejection values", async () => {
     mockRunAppleScript.mockRejectedValue("string error");
     await expect(getActiveTabUrl()).rejects.toThrow(
@@ -145,6 +154,14 @@ describe("getActiveTabInfo", () => {
     const info = await getActiveTabInfo();
     expect(info.url).toBe("https://example.com");
     expect(info.title).toBe("Line1\nLine2");
+  });
+
+  it("strips the trailing newline osascript appends to the output", async () => {
+    mockRunAppleScript.mockResolvedValue(
+      `https://example.com${SEPARATOR}My Page\n`,
+    );
+    const info = await getActiveTabInfo();
+    expect(info.title).toBe("My Page");
   });
 
   it("throws UnexpectedResponseError when separator is missing", async () => {
@@ -199,6 +216,14 @@ describe("getActiveTabCookies", () => {
     expect(result.cookies).toBe(cookies);
   });
 
+  it("strips the trailing newline osascript appends to the cookie string", async () => {
+    mockRunAppleScript.mockResolvedValue(
+      `Title${SEPARATOR}https://x.com${SEPARATOR}a=1; b=2\n`,
+    );
+    const result = await getActiveTabCookies();
+    expect(result.cookies).toBe("a=1; b=2");
+  });
+
   it("throws UnexpectedResponseError when separators are missing", async () => {
     mockRunAppleScript.mockResolvedValue("just text no separators");
     await expect(getActiveTabCookies()).rejects.toThrow(
@@ -217,7 +242,7 @@ describe("getActiveTabCookies", () => {
     mockRunAppleScript.mockResolvedValue(`T${SEPARATOR}U${SEPARATOR}C`);
     await getActiveTabCookies();
     const callArgs = mockRunAppleScript.mock.calls[0];
-    expect(callArgs[1]).toEqual({ timeout: 5_000 });
+    expect(callArgs?.[1]).toEqual({ timeout: 5_000 });
   });
 
   it("throws JavaScriptDisabledError when Apple Events JavaScript is off", async () => {
@@ -286,6 +311,14 @@ describe("getActiveTabHtml", () => {
     expect(result.html).toBe("<body></body>");
   });
 
+  it("strips only the single trailing newline, preserving inner ones", async () => {
+    mockRunAppleScript.mockResolvedValue(
+      `Title${SEPARATOR}https://x.com${SEPARATOR}<body>\nhi\n</body>\n`,
+    );
+    const result = await getActiveTabHtml();
+    expect(result.html).toBe("<body>\nhi\n</body>");
+  });
+
   it("throws UnexpectedResponseError when separators are missing", async () => {
     mockRunAppleScript.mockResolvedValue("just some text without separators");
     await expect(getActiveTabHtml()).rejects.toThrow(UnexpectedResponseError);
@@ -300,14 +333,14 @@ describe("getActiveTabHtml", () => {
     mockRunAppleScript.mockResolvedValue(`T${SEPARATOR}U${SEPARATOR}H`);
     await getActiveTabHtml();
     const callArgs = mockRunAppleScript.mock.calls[0];
-    expect(callArgs[1]).toEqual({ timeout: 15_000 });
+    expect(callArgs?.[1]).toEqual({ timeout: 15_000 });
   });
 
   it("uses default timeout for URL-only extraction", async () => {
     mockRunAppleScript.mockResolvedValue("https://example.com");
     await getActiveTabUrl();
     const callArgs = mockRunAppleScript.mock.calls[0];
-    expect(callArgs[1]).toEqual({ timeout: 5_000 });
+    expect(callArgs?.[1]).toEqual({ timeout: 5_000 });
   });
 });
 
@@ -339,10 +372,10 @@ describe("getTabGroups", () => {
       );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(1);
-    expect(groups[0].name).toBe("my-group");
-    expect(groups[0].tabs).toEqual(["Tab One", "Tab Two"]);
-    expect(groups[0].collapsed).toBe(false);
-    expect(groups[0].tabIndices).toEqual([1, 2]);
+    expect(groups[0]?.name).toBe("my-group");
+    expect(groups[0]?.tabs).toEqual(["Tab One", "Tab Two"]);
+    expect(groups[0]?.collapsed).toBe(false);
+    expect(groups[0]?.tabIndices).toEqual([1, 2]);
   });
 
   it("parses a collapsed group using the count from its description", async () => {
@@ -352,9 +385,9 @@ describe("getTabGroups", () => {
         `G${FS} work - "Tab A" and 1 Other Tab - Collapsed${FS}0`,
       );
     const groups = await getTabGroups();
-    expect(groups[0].collapsed).toBe(true);
-    expect(groups[0].tabs).toEqual(["Tab A", "Tab B"]);
-    expect(groups[0].tabIndices).toEqual([1, 2]);
+    expect(groups[0]?.collapsed).toBe(true);
+    expect(groups[0]?.tabs).toEqual(["Tab A", "Tab B"]);
+    expect(groups[0]?.tabIndices).toEqual([1, 2]);
   });
 
   it("keeps indices aligned after a collapsed group with many tabs", async () => {
@@ -370,13 +403,13 @@ describe("getTabGroups", () => {
       );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(3);
-    expect(groups[0].tabIndices).toEqual([1, 2, 3, 4, 5]);
-    expect(groups[0].tabs).toEqual(["T1", "T2", "T3", "T4", "T5"]);
-    expect(groups[1].tabIndices).toEqual([6, 7]);
-    expect(groups[1].tabs).toEqual(["T6", "T7"]);
-    expect(groups[2].name).toBe("Ungrouped");
-    expect(groups[2].tabIndices).toEqual([8]);
-    expect(groups[2].tabs).toEqual(["T8"]);
+    expect(groups[0]?.tabIndices).toEqual([1, 2, 3, 4, 5]);
+    expect(groups[0]?.tabs).toEqual(["T1", "T2", "T3", "T4", "T5"]);
+    expect(groups[1]?.tabIndices).toEqual([6, 7]);
+    expect(groups[1]?.tabs).toEqual(["T6", "T7"]);
+    expect(groups[2]?.name).toBe("Ungrouped");
+    expect(groups[2]?.tabIndices).toEqual([8]);
+    expect(groups[2]?.tabs).toEqual(["T8"]);
   });
 
   it("parses multiple groups with ungrouped tabs", async () => {
@@ -392,15 +425,15 @@ describe("getTabGroups", () => {
       );
     const groups = await getTabGroups();
     expect(groups).toHaveLength(3);
-    expect(groups[0].name).toBe("group 1");
-    expect(groups[0].tabs).toEqual(["G1-Tab1", "G1-Tab2"]);
-    expect(groups[0].tabIndices).toEqual([4, 5]);
-    expect(groups[1].name).toBe("group 2");
-    expect(groups[1].tabs).toEqual(["G2-Tab1"]);
-    expect(groups[1].tabIndices).toEqual([6]);
-    expect(groups[2].name).toBe("Ungrouped");
-    expect(groups[2].tabs).toEqual(["Ungrouped1", "Ungrouped2", "Ungrouped3"]);
-    expect(groups[2].tabIndices).toEqual([1, 2, 3]);
+    expect(groups[0]?.name).toBe("group 1");
+    expect(groups[0]?.tabs).toEqual(["G1-Tab1", "G1-Tab2"]);
+    expect(groups[0]?.tabIndices).toEqual([4, 5]);
+    expect(groups[1]?.name).toBe("group 2");
+    expect(groups[1]?.tabs).toEqual(["G2-Tab1"]);
+    expect(groups[1]?.tabIndices).toEqual([6]);
+    expect(groups[2]?.name).toBe("Ungrouped");
+    expect(groups[2]?.tabs).toEqual(["Ungrouped1", "Ungrouped2", "Ungrouped3"]);
+    expect(groups[2]?.tabIndices).toEqual([1, 2, 3]);
   });
 
   it("falls back to parsed description when titles are out of range", async () => {
@@ -410,7 +443,7 @@ describe("getTabGroups", () => {
         `G${FS} work - "Fallback Title" and 1 Other Tab - Collapsed${FS}0`,
       );
     const groups = await getTabGroups();
-    expect(groups[0].tabs).toEqual(["Fallback Title", "Tab 2"]);
+    expect(groups[0]?.tabs).toEqual(["Fallback Title", "Tab 2"]);
   });
 
   it("ignores malformed records", async () => {
@@ -419,8 +452,8 @@ describe("getTabGroups", () => {
       .mockResolvedValueOnce(`X${RS}T${RS}garbage${FS}stuff`);
     const groups = await getTabGroups();
     expect(groups).toHaveLength(1);
-    expect(groups[0].name).toBe("Ungrouped");
-    expect(groups[0].tabIndices).toEqual([1]);
+    expect(groups[0]?.name).toBe("Ungrouped");
+    expect(groups[0]?.tabIndices).toEqual([1]);
   });
 
   it("throws BrowserNotRunningError on error 1001", async () => {
@@ -474,7 +507,7 @@ describe("switchToTab", () => {
   it("sets active tab index via AppleScript", async () => {
     mockRunAppleScript.mockResolvedValueOnce("");
     await switchToTab(3);
-    const script = mockRunAppleScript.mock.calls[0][0] as string;
+    const script = mockRunAppleScript.mock.calls[0]?.[0] as string;
     expect(script).toContain("set active tab index of front window to 3");
   });
 

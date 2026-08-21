@@ -34,18 +34,27 @@ const RECORD_SEPARATOR = "\u001E";
 function mapAppleScriptError(error: unknown): never {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (message.includes("(1001)") || message.includes("CHROME_NOT_RUNNING")) {
+  // Our sentinel errors surface as e.g. `execution error: CHROME_NOT_RUNNING
+  // (1001)` — match the token, or the number in its end-of-message position,
+  // so an incidental "(1001)" elsewhere in an error can't misclassify it.
+  const sentinel =
+    message.match(/\((100[1-4])\)\s*$/)?.[1] ??
+    message.match(
+      /\b(CHROME_NOT_RUNNING|CHROME_NO_WINDOW|TAB_OUT_OF_RANGE|CHROME_TAB_STRIP)\b/,
+    )?.[1];
+
+  if (sentinel === "1001" || sentinel === "CHROME_NOT_RUNNING") {
     throw new BrowserNotRunningError();
   }
-  if (message.includes("(1002)") || message.includes("CHROME_NO_WINDOW")) {
+  if (sentinel === "1002" || sentinel === "CHROME_NO_WINDOW") {
     throw new NoWindowError();
   }
-  if (message.includes("(1003)") || message.includes("TAB_OUT_OF_RANGE")) {
+  if (sentinel === "1003" || sentinel === "TAB_OUT_OF_RANGE") {
     throw new UnexpectedResponseError(
       "tab no longer exists (it may have been closed)",
     );
   }
-  if (message.includes("(1004)") || message.includes("CHROME_TAB_STRIP")) {
+  if (sentinel === "1004" || sentinel === "CHROME_TAB_STRIP") {
     throw new UnexpectedResponseError(
       "could not read Chrome's tab strip (Chrome's UI layout may have changed)",
     );
@@ -85,13 +94,18 @@ function mapAppleScriptError(error: unknown): never {
  * Executes an AppleScript against Chrome with structured error handling.
  * The script MUST use `error … number 1001/1002/…` for state guards
  * instead of returning sentinel strings.
+ *
+ * osascript terminates its output with a newline that is not part of the
+ * script's return value, so a single trailing newline is stripped here —
+ * otherwise it leaks into the last field of multi-field responses.
  */
 async function runChromeScript(
   script: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<string> {
   try {
-    return await runAppleScript(script, { timeout: timeoutMs });
+    const result = await runAppleScript(script, { timeout: timeoutMs });
+    return result.replace(/\r?\n$/, "");
   } catch (error) {
     mapAppleScriptError(error);
   }
@@ -361,7 +375,7 @@ ${TAB_CONTAINER_EPILOGUE}
  */
 function parseTabGroupName(desc: string): string {
   const match = desc.match(/^\s*(.+?)\s+-\s+"/);
-  return match ? match[1] : desc.trim();
+  return match?.[1] ?? desc.trim();
 }
 
 /**
@@ -370,7 +384,7 @@ function parseTabGroupName(desc: string): string {
  */
 function collapsedTabCount(desc: string): number {
   const match = desc.match(/and\s+(\d+)\s+Other\s+Tabs?\b/i);
-  const others = match ? parseInt(match[1], 10) : 0;
+  const others = match?.[1] ? parseInt(match[1], 10) : 0;
   return Math.min(1 + others, MAX_GROUP_TABS);
 }
 
@@ -381,7 +395,7 @@ function collapsedTabCount(desc: string): number {
  */
 function parseCollapsedTabs(desc: string): string[] {
   const titleMatch = desc.match(/"([^"]+)"/);
-  const first = titleMatch ? titleMatch[1] : "Untitled";
+  const first = titleMatch?.[1] ?? "Untitled";
   const rest = Array.from(
     { length: collapsedTabCount(desc) - 1 },
     (_, i) => `Tab ${i + 2}`,

@@ -20,12 +20,12 @@ vi.mock("node:util", () => ({
   promisify: () => mockExecFileAsync,
 }));
 
-vi.mock("../toast-error", () => ({
+vi.mock("../lib/toast-error", () => ({
   showChromeError: (...args: unknown[]) => mockShowChromeError(...args),
 }));
 
 import { showToast, showHUD } from "@raycast/api";
-import Command from "../../open-in-atlas";
+import Command from "../open-in-atlas";
 
 const mockShowToast = vi.mocked(showToast);
 const mockShowHUD = vi.mocked(showHUD);
