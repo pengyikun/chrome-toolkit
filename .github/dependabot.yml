@@ -10,6 +10,15 @@ updates:
     ignore:
       # react/react-dom must stay pinned to the version @raycast/api ships
       - dependency-name: react-dom
+      # typescript majors are capped by @raycast/eslint-config's peer range
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # @types/node tracks the Node runtime Raycast bundles for extensions
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # @types/react tracks the react version @raycast/api ships
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
