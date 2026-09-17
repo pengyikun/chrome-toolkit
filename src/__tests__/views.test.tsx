@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { Clipboard, showHUD, showToast } from "@raycast/api";
+import { Clipboard, List, showHUD, showToast } from "@raycast/api";
 const mocks = vi.hoisted(() => ({
   cookies: vi.fn(),
   html: vi.fn(),
@@ -220,4 +220,48 @@ it("renders errors as escaped text and suppresses unsafe browser actions", async
   render(<Html />);
   await screen.findByText("Copy Body HTML");
   expect(screen.queryByText("Open in Browser")).toBeNull();
+});
+
+it.each([Html, Cookies])(
+  "keeps successful copies successful when the success toast rejects",
+  async (View) => {
+    mocks.html.mockResolvedValue({
+      html: "body",
+      title: "Page",
+      url: "https://example.test",
+    });
+    mocks.cookies.mockResolvedValue(cookiePage);
+    vi.mocked(showToast).mockRejectedValueOnce(new Error("Toast unavailable"));
+    render(<View />);
+    await screen.findByText(
+      View === Html ? "Copy Body HTML" : "Copy Cookies JSON",
+    );
+    expect(Clipboard.copy).toHaveBeenCalledOnce();
+    expect(showToast).toHaveBeenCalledOnce();
+  },
+);
+
+it("selects actual tabs first and preserves selection through filtering and refresh", async () => {
+  const second = { ...tab, tabId: "second", title: "Target second" };
+  mocks.groups.mockResolvedValue({
+    kind: "all-tabs",
+    warning: "Unavailable",
+    tabs: [tab, second],
+  });
+  render(<SearchTabs />);
+  await screen.findByText("Target second");
+  const props = () => vi.mocked(List).mock.calls.at(-1)![0];
+  expect(props().selectedItemId).toBe("w:t");
+  act(() => props().onSelectionChange?.("w:second"));
+  fireEvent.change(screen.getByLabelText("Search"), {
+    target: { value: "second" },
+  });
+  expect(props().selectedItemId).toBe("w:second");
+  fireEvent.click(screen.getAllByText("Refresh")[0]!);
+  await screen.findByText("Target second");
+  expect(props().selectedItemId).toBe("w:second");
+  fireEvent.change(screen.getByLabelText("Search"), {
+    target: { value: "missing" },
+  });
+  expect(props().selectedItemId).toBe("group-warning");
 });

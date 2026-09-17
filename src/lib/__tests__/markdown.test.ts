@@ -285,3 +285,16 @@ it("preserves entity-like query parameters in page preview links", () => {
     )?.destination,
   ).toBe(url);
 });
+
+it("bounds rendered metadata without linking a truncated destination", () => {
+  const url = "https://example.test/" + "x".repeat(3000);
+  const markdown = buildPageMarkdown({
+    title: "x".repeat(499) + "😀",
+    url,
+    body: "body",
+  });
+  expect(markdown).not.toContain("\ud83d");
+  expect(markdown).not.toContain("](<");
+  expect(markdown).not.toContain(url);
+  expect(markdown.length).toBeLessThan(2600);
+});

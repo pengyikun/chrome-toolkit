@@ -1,3 +1,4 @@
+import { parseAXTree } from "./ax-tree";
 import { runAppleScript } from "@raycast/utils";
 import {
   AccessibilityPermissionError,
@@ -32,6 +33,16 @@ export type {
   TabSearchResult,
 } from "./tab-groups";
 
+class SnapshotChangedError extends Error {
+  override message = "Chrome tabs changed while reading; refresh to try again.";
+}
+class AXUnsupportedError extends Error {}
+class AXReadError extends Error {}
+class AXTimeoutError extends Error {
+  override message = "Chrome did not respond in time; refresh to try again.";
+}
+class DiscoveryDeadlineError extends Error {}
+
 function mapAppleScriptError(error: unknown): never {
   const message = error instanceof Error ? error.message : String(error);
   const code = message.match(/\((-?\d+)\)\s*$/)?.[1];
@@ -39,8 +50,9 @@ function mapAppleScriptError(error: unknown): never {
   if (code === "1002") throw new NoWindowError();
   if (code === "1003")
     throw new UnexpectedResponseError("tab moved or closed; refresh the list");
-  if (code === "1004")
-    throw new UnexpectedResponseError("could not read Chrome's tab groups");
+  if (code === "1004") throw new SnapshotChangedError();
+  if (code === "1007") throw new AXUnsupportedError();
+  if (code === "1008") throw new AXReadError();
   if (code === "1005") throw new PayloadTooLargeError();
   if (code === "1006") throw new UnexpectedResponseError();
   if (message.includes("JavaScript through AppleScript"))
@@ -51,6 +63,7 @@ function mapAppleScriptError(error: unknown): never {
     throw new AutomationPermissionError();
   if (/Application isn't running|is not running/.test(message))
     throw new BrowserNotRunningError();
+  if (/timed? out|timeout/i.test(message)) throw new AXTimeoutError();
   // Subprocess errors may include stdout (HTML or credentials). Never surface it.
   throw new Error(
     "Could not communicate with Google Chrome. Refresh and try again.",
@@ -137,47 +150,71 @@ export async function getActiveTabCookies(signal?: AbortSignal) {
   return { ...page, cookies: body };
 }
 
-async function snapshot(signal?: AbortSignal) {
-  return parseSnapshot(await runChromeScript(SNAPSHOT_SCRIPT, [], signal));
+async function snapshot(signal?: AbortSignal, timeout = 5_000) {
+  return parseSnapshot(
+    await runChromeScript(SNAPSHOT_SCRIPT, [], signal, timeout),
+  );
 }
 
 export async function getTabGroups(
   signal?: AbortSignal,
 ): Promise<TabSearchResult> {
   let reason = "Chrome's group layout is unsupported or changed while reading.";
+  const deadline = performance.now() + 15_000;
+  const remaining = (cap: number) => {
+    const ms = Math.floor(deadline - performance.now());
+    if (ms <= 0) throw new DiscoveryDeadlineError();
+    return Math.min(cap, ms);
+  };
   for (let attempt = 0; attempt < 2; attempt++) {
-    const before = await snapshot(signal);
-    let records: unknown;
+    let readingAX = false;
     try {
-      records = await runChromeScript(AX_SCRIPT, [], signal, 10_000);
+      const before = await snapshot(signal, remaining(5_000));
+      readingAX = true;
+      const tree = await runChromeScript(
+        AX_SCRIPT,
+        [],
+        signal,
+        remaining(10_000),
+      );
+      readingAX = false;
+      const records = parseAXTree(tree);
+      if (!records) throw new AXUnsupportedError();
+      const after = await snapshot(signal, remaining(5_000));
+      remaining(5_000);
+      try {
+        return {
+          kind: "grouped",
+          groups: reconcileGroups(before, records, after),
+        };
+      } catch (error) {
+        if (!(error instanceof UnexpectedResponseError)) throw error;
+        throw new SnapshotChangedError();
+      }
     } catch (error) {
       signal?.throwIfAborted();
       if (
-        error instanceof BrowserNotRunningError ||
-        error instanceof NoWindowError
-      )
-        throw error;
-      if (
-        error instanceof AccessibilityPermissionError ||
-        error instanceof AutomationPermissionError
+        readingAX &&
+        (error instanceof AccessibilityPermissionError ||
+          error instanceof AutomationPermissionError)
       ) {
         reason = error.message;
         break;
       }
-      // An AX timeout or unreadable layout must not prevent native tab search.
-      continue;
-    }
-    const after = await snapshot(signal);
-    try {
-      return {
-        kind: "grouped",
-        groups: reconcileGroups(before, records, after),
-      };
-    } catch (error) {
-      if (!(error instanceof UnexpectedResponseError)) throw error;
+      if (
+        error instanceof AXUnsupportedError ||
+        error instanceof DiscoveryDeadlineError
+      )
+        break;
+      if (error instanceof SnapshotChangedError || error instanceof AXReadError)
+        continue;
+      // A timed-out AX subprocess is recoverable; malformed/oversized responses
+      // and native communication failures remain explicit errors.
+      if (readingAX && error instanceof AXTimeoutError) continue;
+      throw error;
     }
   }
-  const fresh = await snapshot(signal);
+  const fresh = await snapshot(signal, 5_000);
   return {
     kind: "all-tabs",
     tabs: fresh.tabs,

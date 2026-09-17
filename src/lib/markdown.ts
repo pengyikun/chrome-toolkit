@@ -1,3 +1,12 @@
+/** Bound rendered metadata without splitting UTF-16 surrogate pairs. */
+export function displayText(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  let end = Math.max(0, limit - 1);
+  const last = text.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end--;
+  return text.slice(0, end) + "…";
+}
+
 /**
  * Escapes characters that are meaningful inside a Markdown link text `[…]`.
  * Prevents Markdown injection from untrusted page titles.
@@ -60,12 +69,13 @@ export function buildPageMarkdown(options: {
 }): string {
   const { title, url, body, language = "", maxBodyChars } = options;
   const sections: string[] = [];
-  if (title) sections.push(`# ${escapeMarkdownInline(title)}`);
+  if (title)
+    sections.push(`# ${escapeMarkdownInline(displayText(title, 500))}`);
   if (url)
     sections.push(
-      isSafeBrowserUrl(url)
+      url.length <= 2000 && isSafeBrowserUrl(url)
         ? `[${escapeMarkdownInline(url)}](<${escapeMarkdownLinkUrl(url)}>)`
-        : escapeMarkdownInline(url),
+        : escapeMarkdownInline(displayText(url, 2000)),
     );
   if (body) {
     const max = maxBodyChars ?? body.length;

@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { showChromeError } from "./toast-error";
 
+async function notifyFailure(error: unknown, action: string): Promise<void> {
+  try {
+    await showChromeError(error, action);
+  } catch {
+    // Notifications must never alter read/copy state or reject a reload.
+  }
+}
+
 export interface UseChromeDataOptions<T> {
   fetch: (signal: AbortSignal) => Promise<T>;
   actionLabel: string;
@@ -56,7 +64,7 @@ export function useChromeData<T>(
       const message =
         error instanceof Error ? error.message : "Could not load Chrome data.";
       setState((prev) => ({ ...prev, loading: false, error: message }));
-      await showChromeError(error, requestOptions.actionLabel);
+      await notifyFailure(error, requestOptions.actionLabel);
       return;
     }
     if (!current()) return;
@@ -66,7 +74,7 @@ export function useChromeData<T>(
       await requestOptions.onSuccess?.(data, current);
     } catch (error) {
       if (current())
-        await showChromeError(
+        await notifyFailure(
           error,
           requestOptions.successActionLabel ?? requestOptions.actionLabel,
         );
@@ -82,7 +90,7 @@ export function useChromeData<T>(
 
   useEffect(() => {
     mounted.current = true;
-    void reload();
+    void reload().catch(() => undefined);
     return () => {
       mounted.current = false;
       requestId.current++;

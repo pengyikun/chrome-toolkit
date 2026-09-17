@@ -11,6 +11,7 @@ import { useMemo } from "react";
 import { getActiveTabHtml } from "./lib/chrome";
 import {
   buildPageMarkdown,
+  displayText,
   escapeMarkdownInline,
   isSafeBrowserUrl,
 } from "./lib/markdown";
@@ -31,11 +32,15 @@ export default function Command() {
       if (!isCurrent()) return;
       await Clipboard.copy(page.html, { concealed: true });
       if (!isCurrent()) return;
-      await showToast({
-        style: Toast.Style.Success,
-        title: "Body HTML Copied to Clipboard",
-        message: page.title || page.url || "Active tab",
-      });
+      try {
+        await showToast({
+          style: Toast.Style.Success,
+          title: "Body HTML Copied to Clipboard",
+          message: displayText(page.title || page.url || "Active tab", 500),
+        });
+      } catch {
+        // The copy succeeded; a notification failure is not a copy failure.
+      }
     },
   });
 

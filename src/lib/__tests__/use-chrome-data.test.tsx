@@ -285,3 +285,41 @@ describe("lifecycle and clipboard serialization", () => {
     expect(mockShowChromeError).toHaveBeenCalledWith(failure, "copy HTML");
   });
 });
+
+it("settles fetch failure and reload when failure notification rejects", async () => {
+  mockShowChromeError.mockRejectedValue(new Error("notification unavailable"));
+  const fetch = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("read failed"))
+    .mockResolvedValue("recovered");
+  const { result } = renderHook(() =>
+    useChromeData({ fetch, actionLabel: "load" }),
+  );
+  await waitFor(() => expect(result.current.error).toBe("read failed"));
+  await act(() => result.current.reload());
+  expect(result.current).toMatchObject({
+    data: "recovered",
+    loading: false,
+    error: "",
+  });
+});
+it("drains a queued refresh after copy and failure notification both fail", async () => {
+  mockShowChromeError.mockRejectedValue(new Error("notification unavailable"));
+  const copy = deferred<void>();
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce("first")
+    .mockResolvedValue("second");
+  const onSuccess = vi.fn().mockImplementationOnce(async () => {
+    await copy.promise;
+    throw new Error("copy failed");
+  });
+  const { result } = renderHook(() =>
+    useChromeData({ fetch, actionLabel: "load", onSuccess }),
+  );
+  await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+  await act(() => result.current.reload());
+  await act(async () => copy.resolve());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.data).toBe("second");
+});

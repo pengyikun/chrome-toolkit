@@ -1,3 +1,4 @@
+import { displayText } from "./lib/markdown";
 import {
   Action,
   ActionPanel,
@@ -12,6 +13,7 @@ import { showChromeError } from "./lib/toast-error";
 import { useChromeData } from "./lib/use-chrome-data";
 
 export default function Command() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const { data, loading, error, reload } = useChromeData({
     fetch: getTabGroups,
@@ -20,7 +22,7 @@ export default function Command() {
   const handleSwitch = useCallback(async (tab: ChromeTab) => {
     try {
       await switchToTab(tab);
-      await showHUD(`Switched to "${tab.title}" ✓`);
+      await showHUD(`Switched to "${displayText(tab.title, 500)}" ✓`);
     } catch (error) {
       await showChromeError(error, "switch tab");
     }
@@ -42,6 +44,13 @@ export default function Command() {
       }),
     [groups, query],
   );
+  const tabIds = filtered.flatMap((group) =>
+    group.tabs.map((tab) => `${tab.windowId}:${tab.tabId}`),
+  );
+  const selection =
+    selectedId && tabIds.includes(selectedId)
+      ? selectedId
+      : (tabIds[0] ?? "group-warning");
   const refresh = (
     <Action
       title="Refresh"
@@ -53,6 +62,11 @@ export default function Command() {
   return (
     <List
       isLoading={loading}
+      filtering={false}
+      selectedItemId={selection}
+      onSelectionChange={(id) => {
+        if (id && tabIds.includes(id)) setSelectedId(id);
+      }}
       searchBarPlaceholder="Search tab groups or tabs…"
       onSearchTextChange={setSearchText}
       actions={<ActionPanel>{refresh}</ActionPanel>}
@@ -94,7 +108,7 @@ export default function Command() {
           {filtered.map((group) => (
             <List.Section
               key={`${group.tabs[0]?.windowId}:${group.tabs[0]?.tabId}`}
-              title={group.name}
+              title={displayText(group.name, 500)}
               subtitle={`${group.tabs.length} tab${group.tabs.length === 1 ? "" : "s"}${group.collapsed ? " · collapsed" : ""}`}
             >
               {group.tabs.map((tab) => (
@@ -102,7 +116,7 @@ export default function Command() {
                   key={`${tab.windowId}:${tab.tabId}`}
                   id={`${tab.windowId}:${tab.tabId}`}
                   icon={Icon.Globe}
-                  title={tab.title || "Untitled"}
+                  title={displayText(tab.title || "Untitled", 500)}
                   actions={
                     <ActionPanel>
                       <Action

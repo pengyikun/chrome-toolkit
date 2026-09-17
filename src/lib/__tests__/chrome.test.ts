@@ -34,7 +34,35 @@ const native = JSON.stringify([
   ],
 ]);
 const ax = JSON.stringify([
-  ["G", ' Work - "First" and 1 Other Tab - Expanded', 2],
+  "AXWindow",
+  "",
+  [
+    [
+      "AXTabGroup",
+      "",
+      [
+        [
+          "AXScrollArea",
+          "",
+          [
+            [
+              "AXGroup",
+              "",
+              [
+                [
+                  "AXTabGroup",
+                  ' Work - "First" and 1 Other Tab - Expanded',
+                  [],
+                ],
+                ["AXRadioButton", "", []],
+                ["AXRadioButton", "", []],
+              ],
+            ],
+          ],
+        ],
+      ],
+    ],
+  ],
 ]);
 
 describe("Chrome reads", () => {
@@ -186,13 +214,12 @@ describe("tab discovery", () => {
   it("recovers on a consistent second attempt", async () => {
     mockRunAppleScript
       .mockResolvedValueOnce(native)
-      .mockResolvedValueOnce('[["bad"]]')
-      .mockResolvedValueOnce(native)
+      .mockRejectedValueOnce(new Error("AX_READ_FAILED (1008)"))
       .mockResolvedValueOnce(native)
       .mockResolvedValueOnce(ax)
       .mockResolvedValueOnce(native);
     expect((await getTabGroups()).kind).toBe("grouped");
-    expect(mockRunAppleScript).toHaveBeenCalledTimes(6);
+    expect(mockRunAppleScript).toHaveBeenCalledTimes(5);
   });
   it.each(["-25211", "-1743"])(
     "falls back immediately on AX permission failure %s",
@@ -279,5 +306,60 @@ it("does not turn a failed native after-snapshot into a group fallback", async (
     .mockResolvedValueOnce(ax)
     .mockRejectedValueOnce(new Error("native communication failed"));
   await expect(getTabGroups()).rejects.toThrow("Could not communicate");
+  expect(mockRunAppleScript).toHaveBeenCalledTimes(3);
+});
+
+it.each(["before", "after"])(
+  "retries front-window changes during %s snapshot",
+  async (phase) => {
+    if (phase === "after")
+      mockRunAppleScript
+        .mockResolvedValueOnce(native)
+        .mockResolvedValueOnce(ax);
+    mockRunAppleScript
+      .mockRejectedValueOnce(new Error("CHROME_TAB_STRIP (1004)"))
+      .mockResolvedValueOnce(native)
+      .mockResolvedValueOnce(ax)
+      .mockResolvedValueOnce(native);
+    expect((await getTabGroups()).kind).toBe("grouped");
+  },
+);
+it("caps subprocess timeouts by one monotonic discovery budget", async () => {
+  const clock = vi.spyOn(performance, "now");
+  let now = 0;
+  clock.mockImplementation(() => now);
+  mockRunAppleScript.mockImplementation(async (script: string) => {
+    if (script === AX_SCRIPT) {
+      now += 10_000;
+      throw new Error("Timed out");
+    }
+    now += 3_000;
+    return native;
+  });
+  try {
+    expect((await getTabGroups()).kind).toBe("all-tabs");
+    expect(mockRunAppleScript.mock.calls.map((c) => c[2].timeout)).toEqual([
+      5000, 10000, 2000, 5000,
+    ]);
+  } finally {
+    clock.mockRestore();
+  }
+});
+it.each(["not JSON", "[]"])(
+  "does not hide malformed AX payload %s",
+  async (payload) => {
+    mockRunAppleScript
+      .mockResolvedValueOnce(native)
+      .mockResolvedValueOnce(payload);
+    await expect(getTabGroups()).rejects.toThrow(UnexpectedResponseError);
+    expect(mockRunAppleScript).toHaveBeenCalledTimes(2);
+  },
+);
+it("falls back immediately for an unsupported AX layout", async () => {
+  mockRunAppleScript
+    .mockResolvedValueOnce(native)
+    .mockResolvedValueOnce('["AXWindow","",[]]')
+    .mockResolvedValueOnce(native);
+  expect((await getTabGroups()).kind).toBe("all-tabs");
   expect(mockRunAppleScript).toHaveBeenCalledTimes(3);
 });

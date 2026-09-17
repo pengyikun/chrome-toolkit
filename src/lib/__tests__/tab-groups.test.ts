@@ -117,3 +117,24 @@ describe("group reconciliation", () => {
     expect(() => parseSnapshot(value)).toThrow();
   });
 });
+
+it.each(["Expanded", "Collapsed"])(
+  "validates every title in Chrome's bullet grammar (%s)",
+  (state) => {
+    const snapshot = snap(["", "Second, •  title - 9 Tabs", "Ungrouped"]);
+    const description = ` Work - 2 Tabs, •  https://example.test, •  Second, •  title - 9 Tabs - ${state}`;
+    const records = [["G", description, state === "Expanded" ? 2 : 0], ["T"]];
+    expect(reconcileGroups(snapshot, records, snapshot)[0]).toMatchObject({
+      name: "Work",
+      collapsed: state === "Collapsed",
+      tabs: snapshot.tabs.slice(0, 2),
+    });
+    expect(() =>
+      reconcileGroups(
+        snapshot,
+        [["G", description.replace("Second", "Wrong"), 2], ["T"]],
+        snapshot,
+      ),
+    ).toThrow();
+  },
+);

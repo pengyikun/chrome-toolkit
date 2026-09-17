@@ -88,14 +88,47 @@ export function reconcileGroups(
       visible < 0
     )
       return invalid();
-    // Only terminal metadata is grammar. The known native title must match
-    // verbatim, so title/group text cannot be interpreted as a tab count.
+    // Accept only a unique, complete native-title/count match. Chrome has
+    // shipped both a quoted-first-title and a bullet-separated-title grammar.
+    const candidates: { name: string; count: number; collapsed: boolean }[] =
+      [];
     const suffix = description.match(
       /"(?: and (\d+) Other Tabs?)? - (Expanded|Collapsed)$/,
     );
-    if (!suffix) return invalid();
-    const count = suffix[1] === undefined ? 1 : Number(suffix[1]) + 1;
-    const collapsed = suffix[2] === "Collapsed";
+    if (suffix) {
+      const count = suffix[1] === undefined ? 1 : Number(suffix[1]) + 1;
+      const tail = ` - "${firstTab.title}${suffix[0]}`;
+      if (description.endsWith(tail))
+        candidates.push({
+          name: description.slice(0, -tail.length),
+          count,
+          collapsed: suffix[2] === "Collapsed",
+        });
+    }
+    for (const match of description.matchAll(/ - (\d+) Tabs?, • {2}/g)) {
+      const count = Number(match[1]);
+      if (
+        !Number.isSafeInteger(count) ||
+        count < 1 ||
+        index + count > before.tabs.length
+      )
+        continue;
+      const titles = before.tabs
+        .slice(index, index + count)
+        .map((tab) => tab.title || tab.url)
+        .join(", •  ");
+      for (const state of ["Expanded", "Collapsed"]) {
+        const tail = ` - ${count} Tab${count === 1 ? "" : "s"}, •  ${titles} - ${state}`;
+        if (description.slice(match.index) === tail)
+          candidates.push({
+            name: description.slice(0, match.index),
+            count,
+            collapsed: state === "Collapsed",
+          });
+      }
+    }
+    if (candidates.length !== 1) return invalid();
+    const { count, collapsed } = candidates[0]!;
     if (
       !Number.isSafeInteger(count) ||
       count < 1 ||
@@ -103,9 +136,7 @@ export function reconcileGroups(
     )
       return invalid();
     if (collapsed ? visible !== 0 : visible !== count) return invalid();
-    const tail = ` - "${firstTab.title}${suffix[0]}`;
-    if (!description.endsWith(tail)) return invalid();
-    const name = description.slice(0, -tail.length).trim() || "Unnamed Group";
+    const name = candidates[0]!.name.trim() || "Unnamed Group";
     groups.push({
       name,
       collapsed,

@@ -12,6 +12,7 @@ import { getActiveTabCookies } from "./lib/chrome";
 import { parseCookieString } from "./lib/cookies";
 import {
   buildPageMarkdown,
+  displayText,
   escapeMarkdownInline,
   isSafeBrowserUrl,
 } from "./lib/markdown";
@@ -45,11 +46,15 @@ export default function Command() {
       // Cookies are session credentials — keep them out of clipboard history.
       await Clipboard.copy(page.json, { concealed: true });
       if (!isCurrent()) return;
-      await showToast({
-        style: Toast.Style.Success,
-        title: `${page.count} Cookie${page.count === 1 ? "" : "s"} Copied to Clipboard`,
-        message: page.title || page.url || "Active tab",
-      });
+      try {
+        await showToast({
+          style: Toast.Style.Success,
+          title: `${page.count} Cookie${page.count === 1 ? "" : "s"} Copied to Clipboard`,
+          message: displayText(page.title || page.url || "Active tab", 500),
+        });
+      } catch {
+        // The copy succeeded; a notification failure is not a copy failure.
+      }
     },
   });
 

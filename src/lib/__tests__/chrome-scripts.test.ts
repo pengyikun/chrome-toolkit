@@ -81,12 +81,12 @@ describe.skipIf(!native)(
         });
       },
     );
-    it("maps an unknown traversal failure to a layout error", async () => {
+    it("maps an unknown traversal failure to a transient AX error", async () => {
       const script = `try\nerror "private text" number -1728\non error errMsg number errNum\n${AX_ERROR_HANDLER}\nend try`;
       await expect(
         execFileAsync("osascript", ["-e", script], { timeout: 10000 }),
       ).rejects.toMatchObject({
-        stderr: expect.stringContaining("CHROME_TAB_STRIP (1004)"),
+        stderr: expect.stringContaining("AX_READ_FAILED (1008)"),
       });
     });
     it("rejects output beyond the transport budget", async () => {

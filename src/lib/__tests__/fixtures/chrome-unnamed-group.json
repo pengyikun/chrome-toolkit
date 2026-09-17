@@ -1,0 +1,212 @@
+[
+  "AXWindow",
+  "",
+  [
+    [
+      "AXGroup",
+      "",
+      [
+        [
+          "AXGroup",
+          "",
+          [
+            [
+              "AXGroup",
+              "",
+              [
+                [
+                  "AXGroup",
+                  "",
+                  [
+                    [
+                      "AXGroup",
+                      "",
+                      [
+                        [
+                          "AXToolbar",
+                          "",
+                          [
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            [
+                              "AXGroup",
+                              "",
+                              [
+                                ["AXPopUpButton", "", []],
+                                ["AXTextField", "", []],
+                                ["AXGroup", "", [["AXButton", "", []]]]
+                              ]
+                            ],
+                            [
+                              "AXGroup",
+                              "",
+                              [
+                                ["AXPopUpButton", "", []],
+                                ["AXPopUpButton", "", []],
+                                ["AXPopUpButton", "", []],
+                                ["AXPopUpButton", "", []]
+                              ]
+                            ],
+                            ["AXGroup", "", []],
+                            [
+                              "AXGroup",
+                              "",
+                              [
+                                ["AXCheckBox", "", []],
+                                ["AXCheckBox", "", []],
+                                ["AXCheckBox", "", []],
+                                ["AXCheckBox", "", []],
+                                ["AXCheckBox", "", []],
+                                ["AXCheckBox", "", []],
+                                ["AXGroup", "", []]
+                              ]
+                            ],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXPopUpButton", "", []]
+                          ]
+                        ],
+                        [
+                          "AXToolbar",
+                          "",
+                          [
+                            [
+                              "AXToolbar",
+                              "",
+                              [
+                                ["AXButton", "", []],
+                                ["AXButton", "", []],
+                                ["AXButton", "", []],
+                                ["AXButton", "", []],
+                                ["AXButton", "", []],
+                                ["AXButton", "", []]
+                              ]
+                            ],
+                            ["AXSplitter", "", []],
+                            ["AXPopUpButton", "", []],
+                            ["AXPopUpButton", "", []],
+                            ["AXPopUpButton", "", []],
+                            ["AXPopUpButton", "", []],
+                            ["AXPopUpButton", "", []],
+                            ["AXPopUpButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXButton", "", []],
+                            ["AXPopUpButton", "", []]
+                          ]
+                        ]
+                      ]
+                    ],
+                    [
+                      "AXGroup",
+                      "",
+                      [
+                        ["AXGroup", "", [["AXGroup", "", []]]],
+                        ["AXGroup", "", []]
+                      ]
+                    ],
+                    [
+                      "AXTabGroup",
+                      "",
+                      [
+                        [
+                          "AXGroup",
+                          "",
+                          [
+                            ["AXButton", "", []],
+                            [
+                              "AXGroup",
+                              "",
+                              [
+                                ["AXPopUpButton", "", []],
+                                ["AXPopUpButton", "", []]
+                              ]
+                            ]
+                          ]
+                        ],
+                        ["AXGroup", "", []],
+                        [
+                          "AXGroup",
+                          "",
+                          [
+                            [
+                              "AXScrollArea",
+                              "",
+                              [
+                                ["AXGroup", "", [["AXGroup", "", []]]],
+                                ["AXGroup", "", []]
+                              ]
+                            ],
+                            [
+                              "AXScrollArea",
+                              "",
+                              [
+                                [
+                                  "AXGroup",
+                                  "",
+                                  [
+                                    [
+                                      "AXGroup",
+                                      "",
+                                      [
+                                        [
+                                          "AXGroup",
+                                          "",
+                                          [
+                                            [
+                                              "AXTabGroup",
+                                              " unnamed group - 1 Tab, •  about:blank - Expanded",
+                                              []
+                                            ],
+                                            ["AXGroup", "", []],
+                                            [
+                                              "AXRadioButton",
+                                              "",
+                                              [["AXButton", "", []]]
+                                            ]
+                                          ]
+                                        ]
+                                      ]
+                                    ]
+                                  ]
+                                ],
+                                ["AXGroup", "", []]
+                              ]
+                            ]
+                          ]
+                        ],
+                        ["AXGroup", "", [["AXButton", "", []]]],
+                        ["AXSlider", "", []],
+                        ["AXGroup", "", []]
+                      ]
+                    ],
+                    ["AXGroup", "", []],
+                    ["AXGroup", "", []],
+                    ["AXGroup", "", []]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    ["AXButton", "", []],
+    ["AXButton", "", [["AXGroup", "", [["AXGroup", "", []]]]]],
+    ["AXButton", "", []]
+  ]
+]

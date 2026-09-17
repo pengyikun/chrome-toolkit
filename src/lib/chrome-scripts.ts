@@ -81,56 +81,42 @@ export function extractionJavaScript(kind: "html" | "cookies"): string {
   })()`;
 }
 
-// Preserve numeric permission errors even when the OS message is localized.
+// Traverse structure only: never enter page content. Bounds also protect against
+// accessibility cycles and pathological trees. Descriptions are read only for labels.
 export const AX_ERROR_HANDLER = `
-if errNum is -25211 or errNum is -1743 then error errMsg number errNum
-error "CHROME_TAB_STRIP" number 1004
+if errNum is -25211 or errNum is -1743 or errNum is 1007 then error errMsg number errNum
+error "AX_READ_FAILED" number 1008
 `;
 
-export const AX_SCRIPT = chromeScript(`
-tell application "System Events"
-  tell process "Google Chrome"
-    try
-      set frontWin to front window
-      set base to group 1 of group 1 of group 1 of group 1 of frontWin
-      set tabGroupEl to tab group 1 of base
-      set tabStripGroup to missing value
-      repeat with g in (every group of tabGroupEl)
-        if (count of (every scroll area of g)) > 0 then
-          set tabStripGroup to g
-          exit repeat
-        end if
-      end repeat
-      if tabStripGroup is missing value then error "CHROME_TAB_STRIP" number 1004
-      set scrollAreas to every scroll area of tabStripGroup
-      set tabScrollArea to last item of scrollAreas
-      set tabContainer to group 1 of group 1 of tabScrollArea
-      set rows to {}
-      repeat with el in (every UI element of tabContainer)
-        set elRole to role of el
-        if elRole is "AXRadioButton" then
-          set end of rows to {"T"}
-        else if elRole is "AXGroup" then
-          set groupDesc to missing value
-          repeat with inner in (every UI element of el)
-            if role of inner is "AXTabGroup" then
-              if groupDesc is not missing value then error "CHROME_TAB_STRIP" number 1004
-              set groupDesc to description of inner
-            end if
-          end repeat
-          if groupDesc is missing value then error "CHROME_TAB_STRIP" number 1004
-          set end of rows to {"G", groupDesc as text, count of (every radio button of el)}
-        else if elRole is not "AXButton" then
-          error "CHROME_TAB_STRIP" number 1004
-        end if
-      end repeat
-    on error errMsg number errNum
-      ${AX_ERROR_HANDLER}
-    end try
+export const AX_SCRIPT = `${JSON_HANDLERS}
+property visitedCount : 0
+on readNode(el, depth)
+  set visitedCount to visitedCount + 1
+  if visitedCount > 2000 or depth > 12 then error "AX_UNSUPPORTED" number 1007
+  tell application "System Events"
+    set nodeRole to role of el as text
+    if nodeRole is "AXWebArea" then return {nodeRole, "", {}}
+    set nodeDescription to ""
+    if nodeRole is "AXTabGroup" then set nodeDescription to description of el as text
+    set childNodes to {}
+    repeat with childElement in (every UI element of el)
+      set end of childNodes to my readNode(childElement, depth + 1)
+    end repeat
   end tell
-end tell
-return my encodeJSON(rows)
-`);
+  return {nodeRole, nodeDescription, childNodes}
+end readNode
+on run argv
+${GUARD}
+set visitedCount to 0
+try
+  tell application "System Events" to set frontWin to front window of process "Google Chrome"
+  set tree to my readNode(frontWin, 0)
+on error errMsg number errNum
+  ${AX_ERROR_HANDLER}
+end try
+return my encodeJSON(tree)
+end run
+`;
 
 export const SWITCH_SCRIPT = chromeScript(`
 set wantedWindow to item 1 of argv

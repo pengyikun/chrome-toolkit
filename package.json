@@ -79,7 +79,7 @@
     {
       "name": "open-in-atlas",
       "title": "Open in Atlas",
-      "subtitle": "Chrome Tab → Atlas",
+      "subtitle": "Chrome Tab \u2192 Atlas",
       "description": "Open the active Chrome tab URL in ChatGPT Atlas browser",
       "mode": "no-view"
     }
@@ -114,6 +114,7 @@
     "test:coverage": "vitest run --coverage",
     "prepublishOnly": "echo \"Error: no publish\" && exit 1",
     "publish": "npx @raycast/api@latest publish",
-    "test:native": "CHROME_TOOLKIT_NATIVE_TESTS=1 vitest run src/lib/__tests__/chrome-scripts.test.ts"
+    "test:native": "CHROME_TOOLKIT_NATIVE_TESTS=1 vitest run src/lib/__tests__/chrome-scripts.test.ts",
+    "test:chrome": "CHROME_TOOLKIT_CHROME_SMOKE=1 vitest run src/lib/__tests__/chrome-smoke.test.ts"
   }
 }
