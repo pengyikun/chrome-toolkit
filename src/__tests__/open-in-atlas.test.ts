@@ -36,7 +36,9 @@ afterEach(() => {
 
 describe("Command (open-in-atlas)", () => {
   it("opens the URL in Atlas via Launch Services", async () => {
-    mockRunAppleScript.mockResolvedValue("https://example.com");
+    mockRunAppleScript.mockResolvedValue(
+      JSON.stringify(["https://example.com", "Title"]),
+    );
     mockExecFileAsync.mockResolvedValue({ stdout: "", stderr: "" });
 
     await Command();
@@ -50,7 +52,9 @@ describe("Command (open-in-atlas)", () => {
   });
 
   it('shows "Atlas Not Found" toast when the app is not installed', async () => {
-    mockRunAppleScript.mockResolvedValue("https://example.com");
+    mockRunAppleScript.mockResolvedValue(
+      JSON.stringify(["https://example.com", "Title"]),
+    );
     mockExecFileAsync.mockRejectedValue(
       new Error("Unable to find application named 'ChatGPT Atlas'"),
     );
@@ -66,7 +70,9 @@ describe("Command (open-in-atlas)", () => {
   });
 
   it("detects app-not-found reported via stderr", async () => {
-    mockRunAppleScript.mockResolvedValue("https://example.com");
+    mockRunAppleScript.mockResolvedValue(
+      JSON.stringify(["https://example.com", "Title"]),
+    );
     const error = Object.assign(new Error("Command failed: open"), {
       stderr: "Unable to find application named 'ChatGPT Atlas'",
     });
@@ -82,7 +88,9 @@ describe("Command (open-in-atlas)", () => {
   });
 
   it('shows "Invalid URL" toast when URL is not http/https', async () => {
-    mockRunAppleScript.mockResolvedValue("chrome://settings");
+    mockRunAppleScript.mockResolvedValue(
+      JSON.stringify(["chrome://settings", "Settings"]),
+    );
 
     await Command();
 
@@ -96,7 +104,7 @@ describe("Command (open-in-atlas)", () => {
   });
 
   it('shows "Invalid URL" toast for empty URL string', async () => {
-    mockRunAppleScript.mockResolvedValue("");
+    mockRunAppleScript.mockResolvedValue(JSON.stringify(["", ""]));
 
     await Command();
 
@@ -118,7 +126,9 @@ describe("Command (open-in-atlas)", () => {
   });
 
   it("calls showChromeError for unrelated launch failures", async () => {
-    mockRunAppleScript.mockResolvedValue("https://example.com");
+    mockRunAppleScript.mockResolvedValue(
+      JSON.stringify(["https://example.com", "Title"]),
+    );
     mockExecFileAsync.mockRejectedValue(new Error("Command failed: open"));
 
     await Command();

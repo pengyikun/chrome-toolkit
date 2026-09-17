@@ -162,7 +162,7 @@ describe("buildPageMarkdown", () => {
       language: "json",
     });
     expect(result).toBe(
-      '# My Page\n\n<https://example.com>\n\n```json\n{"a":1}\n```',
+      '# My Page\n\n[https://example\\.com](<https://example.com>)\n\n```json\n{"a":1}\n```',
     );
   });
 
@@ -193,7 +193,7 @@ describe("buildPageMarkdown", () => {
     expect(result).toContain("```\nabcd\n```");
     expect(result).not.toContain("abcde");
     expect(result).toContain("Preview truncated");
-    expect(result).toContain("6-character");
+    expect(result).toContain("use Copy");
   });
 
   it("does not split a surrogate pair at the truncation boundary", () => {
@@ -218,4 +218,70 @@ describe("buildPageMarkdown", () => {
     });
     expect(result).toBe("```\nabcd\n```");
   });
+});
+
+// Parse Markdown rather than assuming an escaped-looking string is safe.
+import { Parser } from "commonmark";
+import { isSafeBrowserUrl } from "../markdown";
+function nodes(markdown: string) {
+  const walker = new Parser().parse(markdown).walker();
+  const result = [];
+  let event;
+  while ((event = walker.next())) if (event.entering) result.push(event.node);
+  return result;
+}
+describe("Markdown semantics", () => {
+  it("renders hostile titles as text, not HTML, images or links", () => {
+    const title =
+      '<img src="https://evil.test"> &copy; ![x](https://evil.test) `code`';
+    const parsed = nodes(buildPageMarkdown({ title, url: "", body: "" }));
+    expect(
+      parsed.some((n) =>
+        ["html_inline", "html_block", "image", "link", "code"].includes(n.type),
+      ),
+    ).toBe(false);
+    expect(
+      parsed
+        .filter((n) => n.type === "text")
+        .map((n) => n.literal)
+        .join(""),
+    ).toBe(title);
+  });
+  it("preserves entity-like query parameters in copied link destinations", () => {
+    const url = "https://example.test/?x=1&copy;=literal&b=2";
+    const parsed = nodes(`[Title](<${escapeMarkdownLinkUrl(url)}>)`);
+    expect(parsed.find((n) => n.type === "link")?.destination).toBe(url);
+  });
+  it("does not link custom application or JavaScript schemes", () => {
+    for (const url of [
+      "javascript:alert(1)",
+      "raycast://extensions/foo",
+      "data:text/html,hi",
+    ]) {
+      expect(isSafeBrowserUrl(url)).toBe(false);
+      expect(
+        nodes(buildPageMarkdown({ title: "", url, body: "" })).some(
+          (n) => n.type === "link",
+        ),
+      ).toBe(false);
+    }
+  });
+  it("keeps fence-breaking payloads inside one code block", () => {
+    const body =
+      '```\n![tracker](https://evil.test)\n<img src="https://evil.test">\n````';
+    const parsed = nodes(fencedCodeBlock(body, "html"));
+    expect(parsed.filter((n) => n.type === "code_block")).toHaveLength(1);
+    expect(
+      parsed.some((n) => ["image", "link", "html_block"].includes(n.type)),
+    ).toBe(false);
+  });
+});
+
+it("preserves entity-like query parameters in page preview links", () => {
+  const url = "https://example.test/?x=1&copy;=literal&b=2";
+  expect(
+    nodes(buildPageMarkdown({ title: "", url, body: "" })).find(
+      (n) => n.type === "link",
+    )?.destination,
+  ).toBe(url);
 });

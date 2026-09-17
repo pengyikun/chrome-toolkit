@@ -9,7 +9,11 @@ import {
 } from "@raycast/api";
 import { useMemo } from "react";
 import { getActiveTabHtml } from "./lib/chrome";
-import { buildPageMarkdown } from "./lib/markdown";
+import {
+  buildPageMarkdown,
+  escapeMarkdownInline,
+  isSafeBrowserUrl,
+} from "./lib/markdown";
 import { useChromeData } from "./lib/use-chrome-data";
 
 /**
@@ -22,8 +26,11 @@ export default function Command() {
   const { data, loading, error, reload } = useChromeData({
     fetch: getActiveTabHtml,
     actionLabel: "extract HTML",
-    onSuccess: async (page) => {
-      await Clipboard.copy(page.html);
+    successActionLabel: "copy HTML",
+    onSuccess: async (page, isCurrent) => {
+      if (!isCurrent()) return;
+      await Clipboard.copy(page.html, { concealed: true });
+      if (!isCurrent()) return;
       await showToast({
         style: Toast.Style.Success,
         title: "Body HTML Copied to Clipboard",
@@ -33,7 +40,7 @@ export default function Command() {
   });
 
   const markdown = useMemo(() => {
-    if (error) return `**Error**\n\n${error}`;
+    if (error) return `**Error**\n\n${escapeMarkdownInline(error)}`;
     if (!data) return "Extracting body HTML from Google Chrome…";
     return buildPageMarkdown({
       title: data.title,
@@ -50,13 +57,16 @@ export default function Command() {
       markdown={markdown}
       actions={
         <ActionPanel>
-          {!error && data?.html && (
+          {!loading && !error && data?.html && (
             <Action.CopyToClipboard
               title="Copy Body HTML"
               content={data.html}
+              concealed
             />
           )}
-          {data?.url && <Action.OpenInBrowser url={data.url} />}
+          {!loading && !error && data?.url && isSafeBrowserUrl(data.url) && (
+            <Action.OpenInBrowser url={data.url} />
+          )}
           <Action
             title="Refresh"
             icon={Icon.RotateClockwise}

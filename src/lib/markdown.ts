@@ -3,14 +3,7 @@
  * Prevents Markdown injection from untrusted page titles.
  */
 export function escapeMarkdownLinkText(text: string): string {
-  return text
-    .replace(/\\/g, "\\\\")
-    .replace(/\[/g, "\\[")
-    .replace(/\]/g, "\\]")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)")
-    .replace(/[\r\n]+/g, " ")
-    .trim();
+  return escapeMarkdownInline(text).trim();
 }
 
 /**
@@ -21,7 +14,9 @@ export function escapeMarkdownLinkUrl(url: string): string {
   return url
     .replace(/[\r\n\s]+/g, "%20")
     .replace(/</g, "%3C")
-    .replace(/>/g, "%3E");
+    .replace(/>/g, "%3E")
+    .replace(/\\/g, "%5C")
+    .replace(/&/g, "&amp;");
 }
 
 /**
@@ -30,7 +25,10 @@ export function escapeMarkdownLinkUrl(url: string): string {
  */
 export function escapeMarkdownInline(text: string): string {
   return text
-    .replace(/([\\`*_{}[\]()#+\-.!|>~])/g, "\\$1")
+    .replace(/([\\`*_{}[\]()#+\-.!|~])/g, "\\$1")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
     .replace(/[\r\n]+/g, " ");
 }
 
@@ -63,7 +61,12 @@ export function buildPageMarkdown(options: {
   const { title, url, body, language = "", maxBodyChars } = options;
   const sections: string[] = [];
   if (title) sections.push(`# ${escapeMarkdownInline(title)}`);
-  if (url) sections.push(`<${escapeMarkdownLinkUrl(url)}>`);
+  if (url)
+    sections.push(
+      isSafeBrowserUrl(url)
+        ? `[${escapeMarkdownInline(url)}](<${escapeMarkdownLinkUrl(url)}>)`
+        : escapeMarkdownInline(url),
+    );
   if (body) {
     const max = maxBodyChars ?? body.length;
     let shown = body.slice(0, max);
@@ -79,10 +82,19 @@ export function buildPageMarkdown(options: {
     }
     sections.push(fencedCodeBlock(shown, language));
     if (body.length > max) {
-      sections.push(
-        `_Preview truncated — the full ${body.length.toLocaleString()}-character content is on the clipboard._`,
-      );
+      sections.push(`_Preview truncated; use Copy for the full content._`);
     }
   }
   return sections.join("\n\n");
+}
+
+/** Only browser-navigation schemes; custom application handlers remain text. */
+export function isSafeBrowserUrl(url: string): boolean {
+  try {
+    return ["http:", "https:", "chrome:", "file:", "about:"].includes(
+      new URL(url).protocol,
+    );
+  } catch {
+    return false;
+  }
 }

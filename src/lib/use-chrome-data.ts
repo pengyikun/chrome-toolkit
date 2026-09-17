@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { showChromeError } from "./toast-error";
 
 export interface UseChromeDataOptions<T> {
-  /** Fetches the data from Chrome. Re-read on every reload, so it need not be memoised. */
-  fetch: () => Promise<T>;
-  /** Action label for the generic failure toast, e.g. "extract cookies". */
+  fetch: (signal: AbortSignal) => Promise<T>;
   actionLabel: string;
-  /** Optional side effect after a successful (non-stale) load, e.g. copying to the clipboard. */
-  onSuccess?: (data: T) => void | Promise<void>;
+  /** Check isCurrent before writing, and after awaiting a write before notifying. */
+  onSuccess?: (data: T, isCurrent: () => boolean) => void | Promise<void>;
+  successActionLabel?: string;
 }
 
 export interface UseChromeDataResult<T> {
@@ -17,13 +16,8 @@ export interface UseChromeDataResult<T> {
   reload: () => Promise<void>;
 }
 
-/**
- * Shared loader for commands that read data from Chrome.
- * Encapsulates the loading/error state machine, the stale-response guard
- * (a reload invalidates any in-flight request, so slow responses can never
- * overwrite newer ones), and the contextual Chrome error toast.
- * Loads once on mount; call `reload` to refresh.
- */
+/** Owns reads and invalidates them on reload/unmount. Clipboard writes are
+ * non-cancellable: refreshes during onSuccess coalesce into one later read. */
 export function useChromeData<T>(
   options: UseChromeDataOptions<T>,
 ): UseChromeDataResult<T> {
@@ -32,40 +26,69 @@ export function useChromeData<T>(
     loading: boolean;
     error: string;
   }>({ data: null, loading: true, error: "" });
-
-  // Latest options, so callers don't have to memoise their callbacks and
-  // `reload` can stay referentially stable.
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const mounted = useRef(false);
+  const requestId = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+  const copying = useRef(false);
+  const queued = useRef(false);
 
-  const requestIdRef = useRef(0);
-
-  const reload = useCallback(async () => {
-    const id = ++requestIdRef.current;
+  const reload = useCallback(async function load(): Promise<void> {
+    if (!mounted.current) return;
+    if (copying.current) {
+      queued.current = true;
+      return;
+    }
+    controller.current?.abort();
+    const abort = new AbortController();
+    controller.current = abort;
+    const id = ++requestId.current;
+    const current = () =>
+      mounted.current && id === requestId.current && !abort.signal.aborted;
+    const requestOptions = optionsRef.current;
     setState((prev) => ({ ...prev, loading: true, error: "" }));
     let data: T;
     try {
-      data = await optionsRef.current.fetch();
+      data = await requestOptions.fetch(abort.signal);
     } catch (error) {
-      if (id !== requestIdRef.current) return;
-      const message = error instanceof Error ? error.message : String(error);
+      if (!current()) return;
+      const message =
+        error instanceof Error ? error.message : "Could not load Chrome data.";
       setState((prev) => ({ ...prev, loading: false, error: message }));
-      await showChromeError(error, optionsRef.current.actionLabel);
+      await showChromeError(error, requestOptions.actionLabel);
       return;
     }
-    if (id !== requestIdRef.current) return;
-    setState({ data, loading: false, error: "" });
+    if (!current()) return;
+    setState({ data, loading: true, error: "" });
+    copying.current = true;
     try {
-      await optionsRef.current.onSuccess?.(data);
+      await requestOptions.onSuccess?.(data, current);
     } catch (error) {
-      // A failed side effect (e.g. clipboard write) is reported, but the
-      // successfully loaded data stays on screen — it is not a load error.
-      await showChromeError(error, optionsRef.current.actionLabel);
+      if (current())
+        await showChromeError(
+          error,
+          requestOptions.successActionLabel ?? requestOptions.actionLabel,
+        );
+    } finally {
+      copying.current = false;
+      if (current()) setState({ data, loading: false, error: "" });
+      if (queued.current && mounted.current) {
+        queued.current = false;
+        await load();
+      }
     }
   }, []);
 
   useEffect(() => {
-    reload();
+    mounted.current = true;
+    void reload();
+    return () => {
+      mounted.current = false;
+      requestId.current++;
+      controller.current?.abort();
+      queued.current = false;
+    };
   }, [reload]);
 
   return { ...state, reload };

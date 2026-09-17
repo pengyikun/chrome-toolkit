@@ -4,8 +4,8 @@ import { getActiveTabCookies } from "./lib/chrome";
 import { Cookie, parseCookieString } from "./lib/cookies";
 import { useChromeData } from "./lib/use-chrome-data";
 
-async function fetchCookies(): Promise<Cookie[]> {
-  const page = await getActiveTabCookies();
+async function fetchCookies(signal: AbortSignal): Promise<Cookie[]> {
+  const page = await getActiveTabCookies(signal);
   return parseCookieString(page.cookies);
 }
 
@@ -22,12 +22,21 @@ export default function Command() {
     return cookies.filter((c) => c.name.toLowerCase().includes(query));
   }, [data, searchText]);
 
+  const refresh = (
+    <Action
+      title="Refresh"
+      icon={Icon.RotateClockwise}
+      onAction={reload}
+      shortcut={Keyboard.Shortcut.Common.Refresh}
+    />
+  );
+
   return (
     <List
       isLoading={loading}
       searchBarPlaceholder="Search cookie by name…"
       onSearchTextChange={setSearchText}
-      throttle
+      actions={<ActionPanel>{refresh}</ActionPanel>}
     >
       {error ? (
         <List.EmptyView
@@ -38,11 +47,15 @@ export default function Command() {
       ) : filtered.length === 0 && !loading ? (
         <List.EmptyView
           icon={Icon.MagnifyingGlass}
-          title="No Cookies Found"
-          description="The page has no cookies readable from JavaScript (HttpOnly cookies are not visible)."
+          title={searchText ? "No Matching Cookies" : "No Cookies Found"}
+          description={
+            searchText
+              ? "Try a different cookie name or refresh."
+              : "The page has no JavaScript-readable cookies (HttpOnly cookies are not visible)."
+          }
         />
       ) : (
-        filtered.map((cookie, index) => (
+        (!loading ? filtered : []).map((cookie, index) => (
           <List.Item
             key={`${cookie.name}-${index}`}
             title={cookie.name}
@@ -59,12 +72,7 @@ export default function Command() {
                   content={cookie.name}
                   shortcut={Keyboard.Shortcut.Common.Copy}
                 />
-                <Action
-                  title="Refresh"
-                  icon={Icon.RotateClockwise}
-                  onAction={reload}
-                  shortcut={Keyboard.Shortcut.Common.Refresh}
-                />
+                {refresh}
               </ActionPanel>
             }
           />

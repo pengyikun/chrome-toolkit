@@ -4,26 +4,28 @@ A [Raycast](https://raycast.com) extension for working with Google Chrome on mac
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| **Copy Chrome URL** | Copy the URL of the active tab |
-| **Copy Chrome Markdown Link** | Copy the active tab as a `[title](url)` Markdown link |
-| **Extract Chrome HTML** | View and copy the body HTML of the active tab |
-| **Extract Chrome Cookies** | Copy the active tab's cookies as JSON |
-| **Search Chrome Cookie** | Search cookies by name and copy a name or value |
-| **Search Chrome Tab Group** | Search tab groups and tabs, then switch to one |
-| **Open Chrome Extensions / Settings / Flags** | Jump straight to the `chrome://` pages |
-| **Open in Atlas** | Open the active tab in the ChatGPT Atlas browser |
+| Command                                       | Description                                           |
+| --------------------------------------------- | ----------------------------------------------------- |
+| **Copy Chrome URL**                           | Copy the URL of the active tab                        |
+| **Copy Chrome Markdown Link**                 | Copy the active tab as a `[title](url)` Markdown link |
+| **Extract Chrome HTML**                       | View and copy the body HTML of the active tab         |
+| **Extract Chrome Cookies**                    | Copy the active tab's cookies as JSON                 |
+| **Search Chrome Cookie**                      | Search cookies by name and copy a name or value       |
+| **Search Chrome Tab Group**                   | Search tab groups and tabs, then switch to one        |
+| **Open Chrome Extensions / Settings / Flags** | Jump straight to the `chrome://` pages                |
+| **Open in Atlas**                             | Open the active tab in the ChatGPT Atlas browser      |
 
 ## Requirements
 
 - macOS with Google Chrome installed
-- Permissions, granted on first use or in *System Settings → Privacy & Security*:
+- Permissions, granted on first use or in _System Settings → Privacy & Security_:
   - **Automation** → Raycast → Google Chrome (all commands)
   - **Accessibility** → Raycast (tab group search)
 - For HTML and cookie extraction, enable **View → Developer → Allow JavaScript from Apple Events** in Chrome
 
-Cookie extraction reads `document.cookie`, so HttpOnly cookies are not included.
+Cookie extraction reads `document.cookie`, so HttpOnly cookies are not included. HTML and cookie extraction automatically copy on load and refresh. Both automatic and manual copies are concealed from clipboard history; concealment does not encrypt clipboard contents or hide them from other applications.
+
+HTML extraction accepts up to 5,000,000 UTF-16 code units and cookies up to 1,000,000. Both previews show at most 100,000. Serialized automation responses are limited to 32 MiB UTF-8. Oversized extraction fails without replacing the clipboard; accepted content is copied in full. If copying fails, the loaded preview and manual Copy action remain available.
 
 ## How it works
 
@@ -32,14 +34,22 @@ Chrome's AppleScript dictionary does not expose tab groups, so the extension com
 - **AppleScript** for tab operations: URLs, titles, cookies, HTML, and switching tabs
 - **macOS Accessibility API** (System Events) to read tab groups from Chrome's tab strip
 
-Tab group detection parses Chrome's accessibility labels, which are English-only — it may not work with Chrome running in another language.
+Tab group detection supports Chrome's English accessibility labels. It verifies native tab snapshots around the accessibility read and retries an inconsistent read once. If permissions, an unsupported layout/language, or a timeout prevents group discovery, the command shows a fresh **All Tabs** list with a warning instead of guessing group membership. Refresh remains available in error and empty states.
+
+Tab selections carry native window/tab IDs, so closing or reordering earlier tabs and changing the front window do not reuse stale positions. A moved or closed target requires refresh. Chrome only exposes index-based activation: the extension resolves the ID immediately before selection and verifies it afterward, but cannot make concurrent browser mutations atomic.
+
+Automation responses use JSON with validation. Pending reads are cancelled when superseded or the view unmounts. Refresh requests during an automatic clipboard write coalesce into one subsequent read. An already-started clipboard write cannot be revoked, but late success notifications are suppressed.
 
 ## Development
 
 ```bash
-npm install
+nvm use           # Node 22
+npm ci
 npm run dev        # hot reload in Raycast
-npm test           # unit tests
+npm test           # unit and command-view tests
+npm run test:native # macOS subprocess contracts; no Chrome session required
+npm run test:coverage
+npm run build -- --output dist # build without replacing the installed extension
 npm run typecheck  # TypeScript type check
 npm run lint       # lint + format check
 ```
@@ -49,3 +59,9 @@ The extension is not on the Raycast Store; `npm run dev` installs it into your l
 ## License
 
 [MIT](LICENSE)
+
+## Validation notes
+
+The refactor was validated under Node 22 with a clean lockfile installation, type checking, lint, tests and isolated builds. Native smoke tests on disposable Chrome windows verified stable-ID selection after earlier-tab closure and front-window changes, closed-target rejection, and HTML extraction. Native JSON serialization, output limits and localized permission-code preservation have automated subprocess tests.
+
+On the tested Chrome installation, AX traversal failed at the version-dependent tab-container path (`System Events`, error -10000). Group parsing and fallback behavior are regression-tested; live expanded/collapsed/pinned group rendering and Raycast visual rendering remain separate compatibility checks. No system permissions were reset. See [AUDIT.md](AUDIT.md) for findings and resolution evidence.

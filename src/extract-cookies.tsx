@@ -10,7 +10,11 @@ import {
 import { useMemo } from "react";
 import { getActiveTabCookies } from "./lib/chrome";
 import { parseCookieString } from "./lib/cookies";
-import { buildPageMarkdown } from "./lib/markdown";
+import {
+  buildPageMarkdown,
+  escapeMarkdownInline,
+  isSafeBrowserUrl,
+} from "./lib/markdown";
 import { useChromeData } from "./lib/use-chrome-data";
 
 interface CookiePage {
@@ -20,8 +24,8 @@ interface CookiePage {
   url: string;
 }
 
-async function fetchCookiePage(): Promise<CookiePage> {
-  const page = await getActiveTabCookies();
+async function fetchCookiePage(signal: AbortSignal): Promise<CookiePage> {
+  const page = await getActiveTabCookies(signal);
   const cookies = parseCookieString(page.cookies);
   return {
     json: JSON.stringify(cookies, null, 2),
@@ -35,9 +39,12 @@ export default function Command() {
   const { data, loading, error, reload } = useChromeData({
     fetch: fetchCookiePage,
     actionLabel: "extract cookies",
-    onSuccess: async (page) => {
+    successActionLabel: "copy cookies",
+    onSuccess: async (page, isCurrent) => {
+      if (!isCurrent()) return;
       // Cookies are session credentials — keep them out of clipboard history.
       await Clipboard.copy(page.json, { concealed: true });
+      if (!isCurrent()) return;
       await showToast({
         style: Toast.Style.Success,
         title: `${page.count} Cookie${page.count === 1 ? "" : "s"} Copied to Clipboard`,
@@ -47,13 +54,14 @@ export default function Command() {
   });
 
   const markdown = useMemo(() => {
-    if (error) return `**Error**\n\n${error}`;
+    if (error) return `**Error**\n\n${escapeMarkdownInline(error)}`;
     if (!data) return "Extracting cookies from Google Chrome…";
     return buildPageMarkdown({
       title: data.title,
       url: data.url,
       body: data.json,
       language: "json",
+      maxBodyChars: 100_000,
     });
   }, [error, data]);
 
@@ -63,14 +71,16 @@ export default function Command() {
       markdown={markdown}
       actions={
         <ActionPanel>
-          {!error && data?.json && (
+          {!loading && !error && data?.json && (
             <Action.CopyToClipboard
               title="Copy Cookies JSON"
               content={data.json}
               concealed
             />
           )}
-          {data?.url && <Action.OpenInBrowser url={data.url} />}
+          {!loading && !error && data?.url && isSafeBrowserUrl(data.url) && (
+            <Action.OpenInBrowser url={data.url} />
+          )}
           <Action
             title="Refresh"
             icon={Icon.RotateClockwise}

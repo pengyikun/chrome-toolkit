@@ -91,9 +91,11 @@
   "devDependencies": {
     "@raycast/eslint-config": "^2.2.0",
     "@testing-library/react": "^16.3.2",
+    "@types/commonmark": "^0.27.10",
     "@types/node": "22.19.17",
     "@types/react": "19.2.18",
     "@vitest/coverage-v8": "^4.1.11",
+    "commonmark": "^0.31.2",
     "eslint": "^10.7.0",
     "happy-dom": "^20.11.6",
     "prettier": "^3.9.6",
@@ -111,6 +113,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "prepublishOnly": "echo \"Error: no publish\" && exit 1",
-    "publish": "npx @raycast/api@latest publish"
+    "publish": "npx @raycast/api@latest publish",
+    "test:native": "CHROME_TOOLKIT_NATIVE_TESTS=1 vitest run src/lib/__tests__/chrome-scripts.test.ts"
   }
 }

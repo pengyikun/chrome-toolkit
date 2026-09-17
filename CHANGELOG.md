@@ -1,5 +1,17 @@
 # Chrome Toolkit Changelog
 
+## [Reliability Refactor] - {PR_MERGE_DATE}
+
+- Carry native window/tab IDs and verify tab activation instead of reusing saved positions
+- Replace delimiter framing with validated JSON and remove redundant newline stripping
+- Validate complete group snapshots; use an All Tabs warning fallback for unreadable groups
+- Cancel stale/unmounted reads and serialize automatic clipboard writes with coalesced refreshes
+- Keep Refresh available in empty/error views and hide stale actions while refreshing
+- Conceal HTML copies, cap extraction/preview sizes, and harden Markdown rendering
+- Preserve localized native permission codes and keep raw subprocess payloads out of errors
+- Add command-view, parser, cancellation and native subprocess regression coverage
+- Pin CI actions, reduce token permissions, and validate against Node 22
+
 ## [Audit Hardening] - {PR_MERGE_DATE}
 
 - Copy extracted cookies to the clipboard as concealed, keeping session credentials out of clipboard history

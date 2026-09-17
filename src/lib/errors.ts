@@ -53,3 +53,13 @@ export class UnexpectedResponseError extends Error {
     this.name = "UnexpectedResponseError";
   }
 }
+
+/** Extraction exceeded the memory/transport budget; no partial copy is made. */
+export class PayloadTooLargeError extends Error {
+  constructor() {
+    super(
+      "Page content is too large to extract safely. HTML is limited to 5,000,000 characters and cookies to 1,000,000; the clipboard was not changed.",
+    );
+    this.name = "PayloadTooLargeError";
+  }
+}
